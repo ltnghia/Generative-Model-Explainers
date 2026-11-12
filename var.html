@@ -174,6 +174,10 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
   input[type=range]{width:150px}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+.aa-sec{margin:22px 24px 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.aa-head h2{font-size:1.15rem;font-weight:700}
+.aa-head p{margin:4px 0 12px;color:var(--muted);font-size:14px;max-width:90ch}
+@media (max-width:760px){.aa-sec{margin-left:16px;margin-right:16px}}
 </style>
 <link rel="stylesheet" href="theme.css">
 </head>
@@ -241,6 +245,10 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
 <div class="film" id="film" aria-label="All scales"></div>
 <p class="note">How to read this: pictures are drawn in your browser and encoded by a small working residual quantizer, so every token map you see is real for this toy. A trained model learns to <em>predict</em> exactly these maps, one scale per forward pass. Real tokenizers work in a learned 16×-downsampled latent space; here the latent is a downsampled RGB image and the "decoder" is upsampling plus the fine detail a CNN decoder would add. Hover the token map to inspect a token.</p>
 
+<section class="aa-sec" aria-labelledby="aaTitle">
+  <div class="aa-head"><h2 id="aaTitle">Architecture in motion</h2><p>One image from start to finish. Each stage lights up the parts it uses and dots show data moving; the boxes show this picture's real token maps. Click any box for details.</p></div>
+  <div id="aaHost"></div>
+</section>
 <section class="deep" aria-label="Deep dive">
   <div class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="tokenizer">Multi-scale tokenizer</button>
@@ -425,6 +433,7 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
 </article>
 <footer>VAR Explainer · an interactive companion to the VAR, SWITTI and Infinity papers. Numbers quoted are from the papers; images are generated in your browser.</footer>
 
+<script src="arch-anim.js"></script>
 <script>
 (function(){
 "use strict";
@@ -1053,10 +1062,96 @@ function renderGallery(){
   if(g.dataset.model!==state.model){g.dataset.model=state.model;g.innerHTML='';
     M.prompts.forEach((pr,i)=>{const b=document.createElement('button');b.type='button';b.title=pr.label;b.setAttribute('aria-label','Example: '+pr.label);
       const cv=document.createElement('canvas');cv.width=cv.height=N;const sm=document.createElement('small');sm.textContent=state.model==='var'?pr.label.split(' · ')[1]:pr.scene;
-      b.append(cv,sm);b.onclick=()=>{stopPlay();stopRace();race=null;state.prompt=i;$('#prompt').value=i;renderCond();renderAll();renderBSC();renderGallery()};g.append(b);
+      b.append(cv,sm);b.onclick=()=>{stopPlay();stopRace();race=null;state.prompt=i;$('#prompt').value=i;renderCond();renderAll();renderBSC();renderGallery();mountAnim()};g.append(b);
       const m=state.model;setTimeout(()=>{if(state.model!==m)return;const D=tokenize(m,pr.scene);cv.getContext('2d').putImageData(decoded(D,D.K-1),0,0)},30+i*25)})}
   Array.from(g.children).forEach((b,i)=>b.setAttribute('aria-pressed',i===state.prompt?'true':'false'));
 }
+/* ---------- animated architecture diagram ---------- */
+let anim=null;
+function archSpec(){
+  const id=state.model,M=MODELS[id],D=curData(),K=D.K,S=D.S,P=M.prompts[state.prompt];
+  const tot=S.reduce((a,b)=>a+b*b,0),cum=k=>S.slice(0,k+1).reduce((a,b)=>a+b*b,0);
+  const mkc=n=>{const c=document.createElement('canvas');c.width=c.height=n;return c};
+  const short=t=>t.length>27?t.slice(0,26)+'…':t;
+  const tokCanvas=k=>{const st=D.steps[k],s=st.s,c=mkc(Math.max(s,64)*2),x=c.getContext('2d'),cw=c.width/s;
+    for(let y=0;y<s;y++)for(let xx=0;xx<s;xx++){x.fillStyle=hashColor(st.q.ids[y*s+xx]);x.fillRect(Math.floor(xx*cw),Math.floor(y*cw),Math.ceil(cw),Math.ceil(cw))}
+    if(s<=16){x.strokeStyle='rgba(0,0,0,.25)';x.lineWidth=1;x.beginPath();for(let i=1;i<s;i++){const v=Math.round(i*cw)+.5;x.moveTo(v,0);x.lineTo(v,c.width);x.moveTo(0,v);x.lineTo(c.width,v)}x.stroke()}
+    return c};
+  const inCanvas=k=>{const c=mkc(128);if(k===0){const x=c.getContext('2d');x.fillStyle=css('--m');x.fillRect(0,0,128,128);x.fillStyle='#fff';x.font='600 34px IBM Plex Mono, monospace';x.textAlign='center';x.textBaseline='middle';x.fillText('[s]',64,66)}
+    else drawField(c,D.steps[k].input,S[k],S[k],null,{grid:S[k]<=16});return c};
+  const imgCanvas=k=>{const c=mkc(N);c.getContext('2d').putImageData(decoded(D,k),0,0);return c};
+  const causal=M.attn==='causal',bits=M.quant==='bits';
+  const onIter=(i,A)=>{
+    const k=Math.min(i,K-1);
+    if(i<K){A.setImg('inp',inCanvas(i));A.setImg('rk',tokCanvas(i));A.setTitle('rk',`Token map r${String(i+1).split('').map(d=>'₀₁₂₃₄₅₆₇₈₉'[d]).join('')} · ${S[i]}×${S[i]}`)}
+    A.setImg('acc',imgCanvas(k));A.setImg('out',i>=K?imgCanvas(K-1):null);
+    if(causal){A.setMeter('kv',cum(Math.min(i,K-1))/tot);A.setSub('kv',0,i<K?`${cum(i).toLocaleString()} of ${tot.toLocaleString()} tokens cached`:`${tot.toLocaleString()} tokens cached`)}
+    else{A.setMeter('kv',S[k]*S[k]/(S[K-1]*S[K-1]));A.setSub('kv',0,`attends to ${(S[k]*S[k]).toLocaleString()} tokens of scale ${k+1} only`)}
+    if(id==='switti')A.setSub('cfg',1,i<K?(i>=K-2?'→ OFF on this scale':'→ ON (6) on this scale'):'');
+  };
+  const badge=i=>i<K?`scale ${i+1} / ${K} · ${S[i]}×${S[i]} = ${(S[i]*S[i]).toLocaleString()} tokens`:`done · ${tot.toLocaleString()} tokens in ${K} passes`;
+  const condNode=id==='var'
+    ?{id:'cond',x:20,y:16,w:200,h:58,t:'Class label',s:[P.label],c:'var(--m)',info:'VAR is class-conditional (ImageNet). The label picks one learned embedding.'}
+    :{id:'cond',x:20,y:16,w:200,h:58,t:'Prompt',s:[`"${short(P.label)}"`],c:'var(--m)',info:'A text prompt, read once by frozen text encoders.'};
+  const embNode=id==='var'
+    ?{id:'emb',x:20,y:90,w:200,h:70,t:'Class embedding',s:['start token [s]','+ AdaLN in every block'],c:'var(--m)',info:'Used twice: as the start token that predicts the 1×1 map, and as the adaptive-layer-norm condition in every transformer block.'}
+    :id==='switti'
+    ?{id:'emb',x:20,y:90,w:200,h:70,t:'CLIP ViT-L + OpenCLIP bigG',s:['text tokens → cross-attention','pooled → AdaLN'],c:'var(--m)',info:'Two text encoders, concatenated along channels. Token vectors enter every block through cross-attention; the pooled bigG vector drives AdaLN.'}
+    :{id:'emb',x:20,y:90,w:200,h:70,t:'Flan-T5 encoder',s:['one vector per text token','→ cross-attention, every block'],c:'var(--m)',info:'A frozen Flan-T5 encoder. Its token vectors are read through cross-attention in every transformer block.'};
+  const tfInfo={var:'A GPT-2-style decoder-only transformer with AdaLN, 30 blocks (2.0B parameters). A block-wise causal mask lets each token see its own scale and every coarser one.',
+    switti:'A scale-wise transformer (about 2.5B parameters) with RMSNorm, QK-norm, 2D RoPE and SwiGLU. Self-attention stays inside the current scale; text arrives through cross-attention.',
+    infinity:'Infinity-2B: a transformer with 2D RoPE and learnable scale embeddings, block-wise causal attention over scales, and cross-attention to the text.'}[id];
+  const headNode=bits
+    ?{id:'head',x:590,y:90,w:180,h:76,t:'IVC: 32 bit classifiers',s:['p(bit = 1) for each bit','h·2d weights, not h·2^d'],c:'var(--m)',info:'The Infinite-Vocabulary Classifier: d independent binary heads instead of one softmax over 2^d codes, which would need about 8.8 trillion weights at d = 32.'}
+    :{id:'head',x:590,y:90,w:180,h:76,t:'Softmax head',s:['4096-way at every position',id==='switti'?'computed in FP32':'one distribution per token'],c:'var(--m)',info:'A linear layer and a 4096-way softmax at each of the s × s positions of the scale.'};
+  const cfgNode={id:'cfg',x:590,y:184,w:180,h:84,t:'Guidance, then sample',
+    s:id==='var'?['CFG ramps up with the scale','top-k / top-p sampling']:id==='switti'?['CFG 6, off on the last 2','→ ON (6) on this scale']:['CFG at every scale','sample each bit'],c:'var(--m)',
+    info:id==='switti'?'Classifier-free guidance doubles the work. SWITTI switches it off on the last two scales, which hold most of the tokens: about 32% faster with fewer fine artifacts.':'Classifier-free guidance combines conditional and unconditional predictions, then one value is sampled per token.'};
+  const cbNode=bits
+    ?{id:'cb',x:800,y:214,w:180,h:64,t:'Bits → residual',s:['sign bits per channel','upsample to the latent grid'],c:'var(--m)',info:'Each token\'s bits are turned back into a residual vector (binary spherical quantization in the real model) and upsampled to the full latent grid.'}
+    :{id:'cb',x:800,y:214,w:180,h:64,t:'Codebook lookup',s:['V = 4096 codes, shared','upsample + φ_k'],c:'var(--m)',info:'Every token id is replaced by its code vector, upsampled to the full latent grid, and passed through a small convolution φ_k.'};
+  const kvNode=causal
+    ?{id:'kv',x:250,y:284,w:300,h:58,t:'KV cache',s:['0 tokens cached'],meter:{x:12,y:42,w:276,h:8},c:'var(--m)',info:'Keys and values of finished scales are kept so each new scale can attend to them without recomputing. The cache grows with every scale.'}
+    :{id:'kv',x:250,y:284,w:300,h:58,t:'No KV cache',s:['attends to this scale only'],meter:{x:12,y:42,w:276,h:8},c:'var(--m)',info:'SWITTI found that a causal model mostly attends to the current scale anyway. Dropping the mask removes the cache: up to 2.3 GB saved per 1024² image and about 21% faster sampling.'};
+  const decInfo={var:'The multi-scale VQ-VAE decoder turns f̂, the sum of all scales, into a 256 × 256 image. It runs once.',
+    switti:'VAR\'s tokenizer with its encoder and codebook frozen; only the decoder was fine-tuned at 512². It runs once.',
+    infinity:'The bitwise tokenizer\'s decoder turns the final latent into a 1024 × 1024 image. It runs once.'}[id];
+  const cap2={var:k=>`One forward pass predicts all ${S[k]*S[k]} tokens of scale ${k+1} at once. Attention sees this scale and every coarser one, whose keys and values sit in the KV cache.`,
+    switti:k=>`One forward pass predicts all ${S[k]*S[k]} tokens of scale ${k+1}. Self-attention stays inside this scale, so nothing is cached; the text enters through cross-attention.`,
+    infinity:k=>`One forward pass predicts all ${S[k]*S[k]} tokens of scale ${k+1}, attending to coarser scales (KV cache) and to the text.`}[id];
+  return{accent:'var(--m)',w:1170,h:382,label:M.name+' architecture, animated',badgeAt:[1160,376],dur:2500,onIter,badge,
+    nodes:[condNode,embNode,
+      {id:'inp',x:20,y:176,w:200,h:162,t:'Input for scale k',s:['f̂_{k−1} resized to k × k'],img:{x:46,y:46,w:108,h:108},c:'var(--m)',info:'Everything generated so far (the running sum f̂) interpolated down to this scale\'s size. At scale 1 the input is just the start token.'},
+      {id:'tf',x:250,y:90,w:300,h:176,t:`Scale-wise transformer · ${M.size}`,s:[causal?'block-wise causal attention':'scale-local attention, no mask across scales'],bars:Object.assign({x:14,y:62},ArchAnim.stack(15,272,98)),c:'var(--m)',info:tfInfo},
+      kvNode,headNode,cfgNode,
+      {id:'rk',x:800,y:16,w:180,h:182,t:'Token map r₁ · 1×1',img:{x:30,y:42,w:120,h:120},c:'var(--m)',info:bits?'This scale\'s tokens, coloured by their 12-bit id in the toy (32 bits in Infinity).':'This scale\'s tokens, coloured by their id in the 4096-entry codebook.'},
+      cbNode,
+      {id:'acc',x:1005,y:150,w:150,h:160,t:'Running sum f̂_k',s:['decoded preview'],img:{x:25,y:46,w:100,h:100,pix:false},c:'var(--m)',info:'f̂_k = f̂_{k−1} + the upsampled codes of scale k. Each scale only adds what the coarser ones missed.'},
+      {id:'out',x:1005,y:16,w:150,h:122,t:'Decoder → image',img:{x:35,y:30,w:80,h:80,pix:false},c:'var(--m)',info:decInfo}],
+    edges:[
+      {id:'cond_emb',from:'cond',to:'emb',d:'M120,74 V90'},
+      {id:'emb_tf',from:'emb',to:'tf',d:'M220,125 H250'},
+      {id:'inp_tf',from:'inp',to:'tf',d:'M220,257 C236,257 234,230 250,230'},
+      {id:'tf_kv',from:'tf',to:'kv',d:'M400,266 V284'},
+      {id:'tf_head',from:'tf',to:'head',d:'M550,128 H590',label:'logits',lx:570,ly:121,anchor:'middle'},
+      {id:'head_cfg',from:'head',to:'cfg',d:'M680,166 V184'},
+      {id:'cfg_rk',from:'cfg',to:'rk',d:'M770,226 C786,226 784,107 800,107'},
+      {id:'rk_cb',from:'rk',to:'cb',d:'M890,198 V214'},
+      {id:'cb_acc',from:'cb',to:'acc',d:'M980,246 C992,246 992,232 1005,232'},
+      {id:'loop',from:'acc',to:'inp',d:'M1080,310 V356 H120 V338',label:'f̂_k is resized to the next scale and becomes the next input',lx:420,ly:349},
+      {id:'acc_out',from:'acc',to:'out',d:'M1080,150 V138'}],
+    phases:[
+      {on:['cond','emb'],flow:['cond_emb'],cap:id==='var'?'The class label picks an embedding. It is the start token [s] that predicts the 1 × 1 map, and it conditions every block through AdaLN.':id==='switti'?'Two frozen CLIP text encoders read the prompt once. Their token vectors feed cross-attention; the pooled vector drives AdaLN.':'A frozen Flan-T5 encoder reads the prompt once. Its token vectors feed cross-attention in every block.'},
+      {on:['inp','emb','tf'],flow:['inp_tf','emb_tf'],cap:k=>k===0?'Scale 1: the only input is the start token, built from the condition.':`Scale ${k+1}: the input is f̂_${k}, everything generated so far, interpolated down to ${S[k]} × ${S[k]}.`},
+      {on:['tf','kv'],flow:['tf_kv'],sweep:'tf',dur:2800,cap:k=>cap2(Math.min(k,K-1))},
+      {on:['tf','head','cfg'],flow:['tf_head','head_cfg'],cap:k=>bits?'The bit heads give 32 independent probabilities per token (12 in this toy); guidance sharpens them and each bit is sampled.':id==='switti'?(k>=K-2?'A 4096-way softmax per token. This is one of the last two scales, so guidance is switched off here.':'A 4096-way softmax per token; classifier-free guidance (6) is applied on this early scale.'):'A 4096-way softmax at every position; guidance sharpens it and one code is sampled per token.'},
+      {on:['cfg','rk','cb','acc'],flow:['cfg_rk','rk_cb','cb_acc'],cap:k=>`The sampled ${S[Math.min(k,K-1)]} × ${S[Math.min(k,K-1)]} map r_${Math.min(k,K-1)+1} is turned back into vectors, upsampled to the full latent grid and added to the running sum f̂.`},
+      {on:['acc','inp'],flow:[{id:'loop',n:4}],dur:1800,cap:'f̂ is interpolated to the next scale\'s size and becomes the next input.'},
+      {on:['acc','out'],flow:['acc_out'],cap:`After ${K} scales (${tot.toLocaleString()} tokens in ${K} forward passes) the decoder turns f̂ into the ${M.res} × ${M.res} image in one pass.`}],
+    loop:{from:1,to:5,count:K,mode:'compress',fastAfter:3,fastScale:3.2}};
+}
+function mountAnim(){if(anim)anim.destroy();anim=new ArchAnim($('#aaHost'),archSpec());}
+
 /* ---------- interactions ---------- */
 function setModel(m){
   stopPlay();stopRace();race=null;state.model=m;document.body.dataset.model=m;state.view='id';state.bit=0;
@@ -1064,12 +1159,12 @@ function setModel(m){
   const M=MODELS[m];if(state.prompt>=M.prompts.length)state.prompt=0;$('#promptLabel').textContent=M.promptLabel;
   $('#prompt').innerHTML=M.prompts.map((p,i)=>'<option value="'+i+'"'+(i===state.prompt?' selected':'')+'>'+p.label+'</option>').join('');
   const sl=$('#scale');sl.max=M.scales.length;state.k=M.scales.length;sl.value=state.k;
-  renderCond();renderAll();renderBSC();renderGallery();
+  renderCond();renderAll();renderBSC();renderGallery();mountAnim();
 }
 function setK(k){state.k=k;$('#scale').value=k;renderAll()}
 function stopPlay(){if(state.playing){clearInterval(state.playing);state.playing=null}$('#play span').textContent='Generate'}
 $$('.seg button').forEach(b=>b.onclick=()=>setModel(b.dataset.model));
-$('#prompt').onchange=e=>{stopPlay();stopRace();race=null;state.prompt=+e.target.value;renderCond();renderAll();renderBSC();renderGallery()};
+$('#prompt').onchange=e=>{stopPlay();stopRace();race=null;state.prompt=+e.target.value;renderCond();renderAll();renderBSC();renderGallery();mountAnim()};
 $('#scale').oninput=e=>{stopPlay();setK(+e.target.value)};
 $('#play').onclick=()=>{
   if(state.playing){stopPlay();return}
