@@ -89,6 +89,11 @@ button,select,input{font:inherit;color:inherit}
 .node.r .t{color:var(--real)}
 .node canvas{display:block;border-radius:6px;background:var(--soft);image-rendering:auto}
 .node .open{font-size:.68rem;color:var(--muted)}
+.node svg.arch{display:block;overflow:visible}
+.node svg.arch text{font-family:var(--font-mono);font-size:7.5px;fill:var(--muted)}
+.node svg.arch.mini text{font-size:7.2px}
+.node.na{opacity:.42}
+.node.na .t{color:var(--muted)}
 .node .open::before{content:"▸ "}
 .node[aria-expanded="true"] .open::before{content:"▾ "}
 
@@ -211,8 +216,8 @@ footer li{margin-bottom:4px;break-inside:avoid}
 
   <div class="flowbox">
     <div class="flowhead"><h3>Architecture: one training iteration</h3><span>Click any box to see what it does. Boxes show live values.</span></div>
-    <div class="flowscroll"><div class="flow" id="ganFlow" style="height:310px">
-      <svg class="arrows" viewBox="0 0 1120 310" width="1120" height="310" aria-hidden="true">
+    <div class="flowscroll"><div class="flow" id="ganFlow" style="height:500px">
+      <svg class="arrows" viewBox="0 0 1120 500" width="1120" height="500" aria-hidden="true">
         <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
         <path class="live" d="M150,145 H195" marker-end="url(#ah)"/>
         <path class="live" d="M365,145 C388,145 388,72 410,72" marker-end="url(#ah)"/>
@@ -224,6 +229,7 @@ footer li{margin-bottom:4px;break-inside:avoid}
         <path d="M1040,222 V298 H280 V224" stroke-dasharray="3 4" marker-end="url(#ah)"/>
         <text class="lbl" x="745" y="255">∇ update D: push D(x)→1, D(G(z))→0</text>
         <text class="lbl" x="600" y="292">∇ update G (through D): push D(G(z))→1</text>
+        <text class="lbl" x="110" y="316">Inside the two networks · lines are live weights of the first 8 units (teal +, amber −)</text>
       </svg>
       <button class="node" data-k="noise" style="left:0;top:70px;width:150px;height:150px" aria-expanded="false"><span class="t">Random noise z</span><canvas id="gnNoise" width="128" height="80" style="width:128px;height:80px"></canvas><span class="s">z ~ N(0, I), 2-D</span></button>
       <button class="node g" data-k="G" style="left:195px;top:70px;width:170px;height:150px" aria-expanded="true"><span class="t">Generator G</span><canvas id="gnG" width="148" height="80" style="width:148px;height:80px"></canvas><span class="s">MLP 2→32→32→2</span></button>
@@ -232,6 +238,8 @@ footer li{margin-bottom:4px;break-inside:avoid}
       <button class="node d" data-k="D" style="left:605px;top:70px;width:170px;height:150px" aria-expanded="false"><span class="t">Discriminator D</span><canvas id="gnD" width="148" height="80" style="width:148px;height:80px"></canvas><span class="s">MLP 2→48→48→1, sigmoid</span></button>
       <button class="node d" data-k="pred" style="left:820px;top:70px;width:130px;height:150px" aria-expanded="false"><span class="t">Prediction</span><canvas id="gnPred" width="108" height="80" style="width:108px;height:80px"></canvas><span class="s">P(real) per sample</span></button>
       <button class="node" data-k="loss" style="left:990px;top:70px;width:130px;height:150px" aria-expanded="false"><span class="t">Losses</span><canvas id="gnLoss" width="108" height="80" style="width:108px;height:80px"></canvas><span class="s" id="gnLossTxt">L_D – · L_G –</span></button>
+      <button class="node g" data-k="archG" style="left:110px;top:324px;width:340px;height:170px" aria-expanded="false"><span class="t">Inside G: multilayer perceptron</span><svg class="arch" id="gnArchG" width="316" height="92" viewBox="0 0 316 92" aria-hidden="true"></svg><span class="s">2 → 32 → 32 → 2 · 1,218 weights</span></button>
+      <button class="node d" data-k="archD" style="left:520px;top:324px;width:340px;height:170px" aria-expanded="false"><span class="t">Inside D: multilayer perceptron</span><svg class="arch" id="gnArchD" width="316" height="92" viewBox="0 0 316 92" aria-hidden="true"></svg><span class="s">2 → 48 → 48 → 1 · 2,545 weights</span></button>
     </div></div>
   </div>
 
@@ -419,8 +427,8 @@ footer li{margin-bottom:4px;break-inside:avoid}
 
   <div class="flowbox">
     <div class="flowhead"><h3>Architecture: from words to pixels</h3><span>Click any box for details. Stage boxes show each generator's output.</span></div>
-    <div class="flowscroll"><div class="flow" style="height:265px">
-      <svg class="arrows" viewBox="0 0 1120 265" width="1120" height="265" aria-hidden="true">
+    <div class="flowscroll"><div class="flow" id="tFlow" style="height:300px">
+      <svg class="arrows" viewBox="0 0 1120 300" width="1120" height="300" aria-hidden="true">
         <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
         <path class="live" d="M170,140 H210" marker-end="url(#ah3)"/>
         <path class="live" d="M360,120 C380,120 380,80 400,80" marker-end="url(#ah3)"/>
@@ -437,10 +445,10 @@ footer li{margin-bottom:4px;break-inside:avoid}
       <button class="node" data-k="enc" style="left:210px;top:60px;width:150px;height:160px" aria-expanded="false"><span class="t">Text encoder</span><span class="s">sentence vector φ(t)</span><div class="vec" id="tnSent"></div><span class="s">+ one vector per word</span><div class="vec" id="tnWords" style="height:14px"></div></button>
       <button class="node" data-k="ca" style="left:400px;top:30px;width:140px;height:110px" aria-expanded="false"><span class="t">Conditioning augmentation</span><div class="vec mu" id="tnCA"></div><span class="s">c ~ N(μ(φ), σ(φ))</span></button>
       <button class="node" data-k="z" style="left:400px;top:160px;width:140px;height:90px" aria-expanded="false"><span class="t">Noise z</span><div class="vec z" id="tnZ"></div><span class="s">z ~ N(0, I)</span></button>
-      <button class="node g" data-k="s1" style="left:580px;top:60px;width:120px;height:178px" aria-expanded="true"><span class="t">Stage I</span><canvas id="tnS1" width="64" height="64" style="width:98px;height:98px"></canvas><span class="s">64×64: layout, colours</span></button>
-      <button class="node g" data-k="s2" style="left:720px;top:60px;width:120px;height:178px" aria-expanded="false"><span class="t">Stage II</span><canvas id="tnS2" width="128" height="128" style="width:98px;height:98px"></canvas><span class="s" id="tnS2s">128×128</span></button>
-      <button class="node g" data-k="s3" style="left:860px;top:60px;width:120px;height:178px" aria-expanded="false"><span class="t">Stage III</span><canvas id="tnS3" width="128" height="128" style="width:98px;height:98px"></canvas><span class="s" id="tnS3s">256×256: details</span></button>
-      <button class="node d" data-k="D" style="left:1000px;top:70px;width:120px;height:160px" aria-expanded="false"><span class="t">Matching-aware discriminator</span><span class="s">real? and does it match the text?</span><span class="s" style="color:var(--dis)">(training only)</span></button>
+      <button class="node g" data-k="s1" style="left:580px;top:60px;width:120px;height:232px" aria-expanded="true"><span class="t">Stage I</span><svg class="arch mini" id="tMs1" width="100" height="36" viewBox="0 0 100 36" aria-hidden="true"></svg><canvas id="tnS1" width="64" height="64" style="width:98px;height:98px"></canvas><span class="s">64×64: layout, colours</span></button>
+      <button class="node g" data-k="s2" style="left:720px;top:60px;width:120px;height:232px" aria-expanded="false"><span class="t">Stage II</span><svg class="arch mini" id="tMs2" width="100" height="36" viewBox="0 0 100 36" aria-hidden="true"></svg><canvas id="tnS2" width="128" height="128" style="width:98px;height:98px"></canvas><span class="s" id="tnS2s">128×128</span></button>
+      <button class="node g" data-k="s3" style="left:860px;top:60px;width:120px;height:232px" aria-expanded="false"><span class="t">Stage III</span><svg class="arch mini" id="tMs3" width="100" height="36" viewBox="0 0 100 36" aria-hidden="true"></svg><canvas id="tnS3" width="128" height="128" style="width:98px;height:98px"></canvas><span class="s" id="tnS3s">256×256: details</span></button>
+      <button class="node d" data-k="D" style="left:1000px;top:60px;width:120px;height:232px" aria-expanded="false"><span class="t">Matching-aware discriminator</span><svg class="arch mini" id="tMD" width="100" height="40" viewBox="0 0 100 40" aria-hidden="true"></svg><span class="s">real? and does it match the text?</span><span class="s" style="color:var(--dis)">(training only)</span></button>
     </div></div>
   </div>
 
@@ -542,6 +550,7 @@ footer li{margin-bottom:4px;break-inside:avoid}
   </ol>
   <p>The GAN tab trains real networks in your browser. The Pix2Pix and Text-to-Image tabs use procedurally drawn illustrations of each model's typical behaviour, so they load instantly without model weights.</p>
 </div></footer>
+<script src="arch-anim.js"></script>
 <script>
 // ===================== Shared utilities =====================
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -1056,6 +1065,68 @@ function putRGB(canvas,I){const ctx=canvas.getContext('2d');const w=PR;if(canvas
 function heat(v){// 0 → dis (fake), 0.5 → soft, 1 → real
   const a=THEME.disC,b=THEME.softC,c=THEME.realC;if(v<0.5){const t=v/0.5;return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];}const t=(v-0.5)/0.5;return[lerp(b[0],c[0],t),lerp(b[1],c[1],t),lerp(b[2],c[2],t)];}
 
+// ===================== Architecture drawings (inside the networks) =====================
+/* Live MLP diagram: columns of units, lines = real weights of the first 8 units per layer */
+const MLPViz=(()=>{
+  const W=316,H=92,SHOW=8,built={};
+  function ys(n){const m=Math.min(n,SHOW);return Array.from({length:m},(_,j)=>44+(j-(m-1)/2)*8.6)}
+  function build(id,sizes,acts,color){
+    const svg=document.getElementById(id);if(!svg)return;const cols=sizes.length,xs=sizes.map((_,i)=>34+i*(W-68)/(cols-1));
+    let h='';const lines=[];
+    for(let l=0;l<cols-1;l++){const A=ys(sizes[l]),B=ys(sizes[l+1]);A.forEach((y1,i)=>B.forEach((y2,o)=>{h+=`<line x1="${xs[l]}" y1="${y1}" x2="${xs[l+1]}" y2="${y2}" stroke-width="1" style="stroke:var(--muted);stroke-opacity:.15"/>`;lines.push([l,i,o])}))}
+    sizes.forEach((n,l)=>{const Y=ys(n),top=Y[0]-6,bot=Y[Y.length-1]+6;
+      h+=`<rect class="col" x="${xs[l]-8}" y="${top}" width="16" height="${bot-top}" rx="8" style="fill:${color};fill-opacity:.13;stroke:${color};stroke-opacity:.45"/>`;
+      Y.forEach(y=>h+=`<circle cx="${xs[l]}" cy="${y}" r="3.1" style="fill:var(--panel);stroke:${color};stroke-width:1.2"/>`);
+      h+=`<text x="${xs[l]}" y="${H-1}" text-anchor="middle">${l===0?n+' in':l===cols-1?n+' out':n+(n>SHOW?' (8 shown)':'')}</text>`});
+    acts.forEach((a,l)=>h+=`<text x="${(xs[l]+xs[l+1])/2}" y="6" text-anchor="middle">${a}</text>`);
+    svg.innerHTML=h;built[id]={els:[...svg.querySelectorAll('line')],lines};
+  }
+  function update(id,net){const b=built[id];if(!b||!net)return;
+    const mx=net.layers.map(L=>{let m=1e-9;for(let i=0;i<Math.min(L.nin,SHOW);i++)for(let o=0;o<Math.min(L.nout,SHOW);o++)m=Math.max(m,Math.abs(L.W[i*L.nout+o]));return m});
+    b.lines.forEach(([l,i,o],k)=>{const L=net.layers[l],w=L.W[i*L.nout+o],a=Math.min(1,Math.abs(w)/mx[l]),el=b.els[k];
+      el.style.stroke=w>=0?'var(--real)':'var(--dis)';el.style.strokeOpacity=(0.08+0.75*a).toFixed(3);el.setAttribute('stroke-width',(0.5+1.6*a).toFixed(2))})}
+  return{build,update};
+})();
+
+/* Text-to-image networks, sketched inside each stage box the way Pix2Pix sketches its U-Net.
+   Block: [kind, resolution]; kinds: in (text/noise input), feat, img, op (⊕ text), attn, res, out */
+const ARCH_T2I=(()=>{
+  const d=(title,html)=>({title,html});
+  const G1=[['in'],['feat',4],['feat',8],['feat',16],['feat',32],['feat',64],['img',64]];
+  const DN=[['img',256],['feat',64],['feat',16],['feat',4],['op'],['out']];
+  return{
+    ganint:{
+      s1:{mini:G1,cap:'φ ⊕ z → FC → deconv ×4',det:d('Inside the GAN-INT-CLS generator','A DCGAN-style generator. The 1024-d text embedding φ(t) is compressed by a fully connected layer to 128 dimensions and concatenated with noise z (100-d), projected to a 4 × 4 feature map and upsampled by transposed convolutions to the 64 × 64 image (tanh output).')},
+      D:{mini:[['img',64],['feat',32],['feat',16],['feat',8],['feat',4],['op'],['out']],cap:'conv ↓ → ⊕ φ → score',det:d('Inside the GAN-INT-CLS discriminator','Stride-2 convolutions shrink the image to 4 × 4. The text embedding is compressed, replicated over the 4 × 4 grid and concatenated along the channels; a 1 × 1 and a 4 × 4 convolution give one score. Training adds real images with mismatched captions, labelled fake.')}},
+    stack:{
+      s1:{mini:G1,cap:'c ⊕ z → FC → up ×4',det:d('Inside the Stage-I generator','c (128-d, from conditioning augmentation) is concatenated with z (100-d), mapped by a fully connected layer to 4 × 4 and upsampled through four blocks (upsampling + 3 × 3 convolution) to the 64 × 64 "sketch".')},
+      s2:{mini:[['img',64],['feat',32],['feat',16],['op'],['res',16],['feat',32],['feat',64],['feat',128],['feat',256],['img',256]],cap:'down → ⊕ c → res → up ×4',det:d('Inside the Stage-II generator','An encoder-decoder: the Stage-I image is downsampled to 16 × 16, the text condition c is replicated over that grid and concatenated (the text is read a second time), residual blocks fuse the two, and four upsampling blocks produce 256 × 256.')},
+      D:{mini:DN,cap:'down → ⊕ c → 1×1 → FC',det:d('Inside the StackGAN discriminators','One per stage. Downsampling blocks bring the image to 4 × 4; the compressed text embedding is replicated to 4 × 4 × 128 and concatenated; a 1 × 1 convolution and a fully connected layer give the score.')}},
+    attn:{
+      s1:{mini:G1,cap:'F₀: FC → up ×4 → conv',det:d('Inside F₀ and G₀','F₀ maps [c; z] through a fully connected layer and four upsampling blocks to the hidden features h₀ (64 × 64); G₀, one 3 × 3 convolution, turns h₀ into the image. The hidden features, not the image, go on to the next stage.')},
+      s2:{mini:[['feat',64],['attn'],['res',64],['feat',128],['img',128]],cap:'attn → res ×2 → up',det:d('Inside F₁ and G₁','The attention module builds, for every sub-region of h₀, a weighted sum of the word features that matter there. It is concatenated with h₀, passed through two residual blocks and upsampled to h₁ (128 × 128); G₁ turns it into the image.')},
+      s3:{mini:[['feat',128],['attn'],['res',128],['feat',256],['img',256]],cap:'attn → res ×2 → up',det:d('Inside F₂ and G₂','The same attention design at 256 × 256: words are attended again from h₁, so fine-grained words such as "crown" or "stamens" get their own regions.')},
+      D:{mini:DN,cap:'down → ⊕ ē → 2 scores',det:d('Inside the AttnGAN discriminators','One per stage. Each downsamples its image to 4 × 4 and outputs an unconditional score (real?) and a conditional one after concatenating the sentence embedding (real and matching?). The DAMSM loss additionally scores word-to-region agreement.')}}
+  };
+})();
+/* draw a mini sketch: bars whose height grows with resolution (rect.blk = sweepable), caption underneath */
+function archMini(svg,blocks,cap,role){
+  const W=+svg.getAttribute('width'),H=+svg.getAttribute('height'),n=blocks.length,step=W/n,cy=(H-10)/2,col=role==='d'?'var(--dis)':'var(--gen)';
+  const bh=s=>4+(H-18)*Math.log2(Math.max(4,s)/4)/6;
+  let h='';blocks.forEach(([k,s],i)=>{const cx=step*(i+.5);let w=5,hh=bh(s),f=col,op=.35+.06*i,rx=1;
+    if(k==='img'){w=8;op=.9}else if(k==='in'||k==='op'){w=5;hh=5;rx=2.5;f='var(--muted)';op=.7}else if(k==='attn'){w=6;hh=14;f='var(--real)';op=.75}else if(k==='out'){w=6;hh=6;op=.9}
+    h+=`<rect class="blk" x="${(cx-w/2).toFixed(1)}" y="${(cy-hh/2).toFixed(1)}" width="${w}" height="${hh.toFixed(1)}" rx="${rx}" style="fill:${f};fill-opacity:${Math.min(1,op).toFixed(2)}"/>`;
+    if(k==='res')h+=`<path class="skp" data-to="${i}" d="M${cx-4},${cy-hh/2} C${cx-4},${cy-hh/2-7} ${cx+4},${cy-hh/2-7} ${cx+4},${cy-hh/2}" style="fill:none;stroke:var(--real);stroke-width:1"/>`});
+  h+=`<text x="${W/2}" y="${H-1}" text-anchor="middle">${cap}</text>`;svg.innerHTML=h;
+}
+function t2iArch(model){
+  const A=ARCH_T2I[model];
+  ['s1','s2','s3','D'].forEach(k=>{const svg=document.getElementById('tM'+k);if(!svg)return;const a=A[k];
+    if(a)archMini(svg,a.mini,a.cap,k==='D'?'d':'g');else svg.innerHTML=''});
+}
+/* model-specific architecture note appended to a box's details */
+function t2iArchNote(model,k){const a=ARCH_T2I[model][k];return a?`<h4 style="margin-top:12px">${a.det.title}</h4><p>${a.det.html}</p>`:''}
+
 // ===================== GAN view =====================
 const GanUI=(()=>{
   const sel=$('#ganDs');GAN_DATASETS.forEach((d,i)=>sel.add(new Option(d.name,i)));
@@ -1118,12 +1189,14 @@ const GanUI=(()=>{
     D:{c:'d',title:'Discriminator D',html:'<p>A classifier that outputs the probability that its input is real. Here it is an MLP with two hidden layers of 48 units and a sigmoid output. The thumbnail and the main background show D\'s output over the whole plane.</p><p>D is trained with binary cross-entropy: L_D = −𝔼[log D(x)] − 𝔼[log(1 − D(G(z)))]. Its decision surface is what gives G its gradient.</p>'},
     pred:{c:'d',title:'Prediction',html:'<p>Average D output on a batch of real points and on a batch of fakes. Early on D separates them easily (D(x) high, D(G(z)) low). As G improves, both move toward 0.5, the point where D can only guess.</p>'},
     loss:{title:'Losses and updates',html:'<p>One iteration updates D (k times) to separate real from fake, then updates G to fool the new D. The dashed arrows in the diagram are these gradient updates.</p><p>Unlike ordinary training, the losses do not simply go down: each network\'s loss rises when the other improves. A run is healthy when they hover near the equilibrium values instead of one collapsing to zero.</p>'},
+    archG:{c:'g',title:'Inside G: a 2 → 32 → 32 → 2 multilayer perceptron',html:'<p>Two hidden layers of 32 units with LeakyReLU (slope 0.2) and a linear output, so G can place points anywhere in the plane. Every line in the drawing is a real weight of the network training above, for the first 8 units of each layer: teal for positive, amber for negative, thicker for larger. Watch them change as training runs.</p><p>In the animation the layers light up left to right on the forward pass and right to left when the gradient flows back.</p>'},
+    archD:{c:'d',title:'Inside D: a 2 → 48 → 48 → 1 multilayer perceptron',html:'<p>Two hidden layers of 48 units with LeakyReLU and one sigmoid output, the probability that a point is real. D is a little larger than G here, which keeps its decision surface informative. Lines are live weights of the first 8 units of each layer.</p><p>During the generator step D is frozen: the gradient passes through it into G, but its weights do not change.</p>'},
   };
   const Flow=setupFlow('#ganFlow',DET,$('#ganDetail'),k=>{if(!T.last)return'';if(k==='pred'||k==='D')return`<dl class="kv"><dt>mean D(x)</dt><dd>${T.last.dReal.toFixed(3)}</dd><dt>mean D(G(z))</dt><dd>${T.last.dFake.toFixed(3)}</dd></dl>`;if(k==='loss')return`<dl class="kv"><dt>L_D</dt><dd>${T.last.lossD.toFixed(3)} (equilibrium 1.386)</dd><dt>L_G</dt><dd>${T.last.lossG.toFixed(3)} (equilibrium 0.693)</dd><dt>iteration</dt><dd>${T.iter}</dd></dl>`;if(k==='real')return`<dl class="kv"><dt>example</dt><dd>${GAN_DATASETS[+sel.value].name}</dd></dl>`;if(k==='G'||k==='D'){const net=k==='G'?T.G:T.D;let n=0;net.layers.forEach(L=>n+=L.W.length+L.b.length);return`<dl class="kv"><dt>parameters</dt><dd>${n.toLocaleString('en-US')}</dd><dt>optimizer</dt><dd>Adam, lr ${T.lrG.toFixed(4)}, β₁ 0.5</dd><dt>batch</dt><dd>${T.batch}</dd></dl>`;}return'';});
   applyHyper();$('#ganDsNote').textContent=GAN_DATASETS[0].note;setPlay(playing);
   if(REDUCED){for(let i=0;i<400;i++)T.step();}
   fakes=T.fakes();draw(true);requestAnimationFrame(loop);
-  return{draw:()=>draw(true)};
+  return{draw:()=>draw(true),get T(){return T}};
 })();
 
 // ===================== Pix2Pix view =====================
@@ -1217,7 +1290,7 @@ const T2I=(()=>{
     const mc=$$('#tMatch canvas');const realPose=poseFor(5,P.type);const real=renderStage(Object.assign({type:P.type},P.a),realPose,{res:256,detail:1,distort:0,noise:0},5);blit(mc[0],real);blit(mc[1],real);
     const fake=renderStage(attrs,pose,T2I_MODELS.ganint.stages[0],st.seed);blit(mc[2],fake);
     const wrong=T2I_PROMPTS[nextOf(st.p)].text;mc[1].title='wrong text: “'+wrong+'”';mc[1].nextElementSibling.textContent='real image + “'+wrong.split(' ').slice(0,5).join(' ')+'…”';
-    Flow.render();}
+    t2iArch(st.model);Flow.render();}
   function jet(v){const r=clamp(1.5-Math.abs(4*v-3),0,1),g=clamp(1.5-Math.abs(4*v-2),0,1),b=clamp(1.5-Math.abs(4*v-1),0,1);return[r*255,g*255,b*255];}
   const DET={
     prompt:{title:'Text prompt',html:'<p>A natural-language description. GAN text-to-image models were trained on narrow domains with many captions per image, such as CUB-200 birds and Oxford-102 flowers (ten captions each), so they handle descriptions of colours and parts well but not arbitrary scenes.</p>'},
@@ -1229,10 +1302,110 @@ const T2I=(()=>{
     s3:{c:'g',title:'Stage III generator (AttnGAN, 256×256)',html:'<p>A second attention-driven refinement at full resolution. Fine-grained words such as "crown", "wing bars" or "stamens" now get their own regions, adding texture and part-level detail. Click a highlighted word to see its attention map.</p>'},
     D:{c:'d',title:'Matching-aware discriminator',html:'<p>Used only during training, one per stage. It receives an image and the sentence embedding and must output "real" only for real images paired with their own caption. Generated images and mismatched pairs count as fake. AttnGAN additionally adds the DAMSM loss, which scores word-to-region agreement.</p><p>At generation time only the encoder and generators run, once each, which is why GANs are fast.</p>'},
   };
-  const Flow=setupFlow('#view-text2image',DET,$('#tDetail'),k=>{const M=T2I_MODELS[st.model];if(k.startsWith('s')){const i=+k[1]-1;return i<M.stages.length?`<dl class="kv"><dt>model</dt><dd>${M.name} (${M.year})</dd><dt>this stage</dt><dd>${M.stages[i].res}×${M.stages[i].res}</dd><dt>stages in model</dt><dd>${M.stages.length}</dd></dl>`:`<p class="note">${M.name} has no stage ${['I','II','III'][i]}.</p>`;}return'';});
+  const Flow=setupFlow('#view-text2image',DET,$('#tDetail'),k=>((k=>{const M=T2I_MODELS[st.model];if(k.startsWith('s')){const i=+k[1]-1;return i<M.stages.length?`<dl class="kv"><dt>model</dt><dd>${M.name} (${M.year})</dd><dt>this stage</dt><dd>${M.stages[i].res}×${M.stages[i].res}</dd><dt>stages in model</dt><dd>${M.stages.length}</dd></dl>`:`<p class="note">${M.name} has no stage ${['I','II','III'][i]}.</p>`;}return'';})(k)+t2iArchNote(st.model,k)));
   return{draw};
 })();
 function redrawAll(){GanUI.draw();Pix.draw();T2I.draw();}
 showView(location.hash.slice(1)||'gan');Pix.draw();T2I.draw();
+/* ===== Animated architecture diagrams: the existing flow diagrams of each view are animated in place ===== */
+const ArchGAN=(()=>{
+  const GEN='var(--gen)',DIS='var(--dis)',REAL='var(--real)',MUT='var(--muted)';
+  const cv=id=>document.getElementById(id);
+  const pressed=sel=>{const b=document.querySelector(sel+' button[aria-pressed="true"]');return b?b.dataset.v:null};
+  /* the flow box of a view: its arrows (in document order) and its nodes (by data-k) */
+  function parts(view){
+    const fb=document.querySelector(`#view-${view} .flowbox`),flow=fb.querySelector('.flow'),svg=flow.querySelector('svg.arrows');
+    const paths=[...svg.querySelectorAll(':scope > path')];
+    const nodes={};flow.querySelectorAll('.node').forEach(n=>nodes[n.dataset.k]=n);
+    return{fb,flow,svg,paths,nodes};
+  }
+  const cols=id=>()=>{const s=cv(id);return s?{bars:[...s.querySelectorAll('rect.col')]}:null};
+  const blocks=id=>()=>{const s=cv(id);if(!s)return null;return{bars:[...s.querySelectorAll('rect.blk')],skips:[...s.querySelectorAll('path.skp')].map(el=>({el,to:+el.dataset.to}))}};
+  const named=(paths,names)=>{const o={};names.forEach((n,i)=>{if(n&&paths[i])o[n]=paths[i]});return o};
+
+  /* ---------- 1. GAN: one training iteration ---------- */
+  function ganSpec(Q){
+    const k=+cv('ganK').value,iterNo=()=>cv('ganIter').textContent;
+    return{accent:GEN,dur:2500,
+      attach:{flow:Q.flow,svg:Q.svg,barHost:Q.fb,nodes:Q.nodes,bars:{archG:cols('gnArchG'),archD:cols('gnArchD')},
+        edges:named(Q.paths,['z_G','G_fake','fake_D','real_D','D_pred','pred_loss','gradD','gradG']),
+        ends:{z_G:['noise','G'],G_fake:['G','fake'],fake_D:['fake','D'],real_D:['real','D'],D_pred:['D','pred'],pred_loss:['pred','loss'],gradD:['loss','D'],gradG:['loss','G']}},
+      onPhase:(it,A)=>{A.badge.textContent=it.iter<k?`live training iteration ${iterNo()} · discriminator step ${it.iter+1} of ${k}`:`live training iteration ${iterNo()} · generator step`},
+      phases:[
+        {on:['noise','G','archG','fake'],flow:['z_G','G_fake'],sweep:'archG',dur:3000,cap:i=>`Discriminator step${k>1?` ${i+1} of ${k}`:''}: sample a batch of noise z and push it through G to get fake points. G's weights stay frozen during this step.`},
+        {on:['real','fake','D','archD'],flow:[{id:'fake_D',c:GEN},{id:'real_D',c:REAL}],sweep:'archD',dur:2800,cap:'D scores a batch of real points and a batch of fake points: each point passes through its three layers to one sigmoid output.'},
+        {on:['D','pred','loss'],flow:['D_pred','pred_loss'],cap:'L_D = −[log D(x) + log(1 − D(G(z)))]. D is rewarded for saying "real" on data and "fake" on samples.'},
+        {on:['loss','D','archD'],flow:[{id:'gradD',c:DIS,n:4}],sweep:'archD',sweepRev:true,dur:2800,cap:'Backpropagation changes only D\'s weights, so its decision surface moves.'+(k>1?` With ${k} D steps per G step, this repeats before G moves.`:'')},
+        {on:['noise','G','archG','fake','D'],flow:['z_G','G_fake',{id:'fake_D',c:GEN}],sweep:'archG',dur:2800,cap:'Generator step: draw fresh noise and make new fakes. This time only the fakes go through D.'},
+        {on:['D','archD','pred','loss'],flow:['D_pred','pred_loss'],sweep:'archD',cap:'Non-saturating generator loss L_G = −log D(G(z)): G wants D to call its samples real.'},
+        {on:['loss','pred','D','archD','fake','G','archG'],flow:[{id:'gradG',c:GEN,n:5},{id:'pred_loss',rev:true,c:GEN},{id:'D_pred',rev:true,c:GEN},{id:'fake_D',rev:true,c:GEN},{id:'G_fake',rev:true,c:GEN}],sweep:['archG','archD'],sweepSeq:true,sweepRev:true,dur:3600,cap:'The gradient flows backward through D\'s layers, which stay frozen, and on through G\'s layers; only G\'s weights change. Then the next iteration begins.'}],
+      loop:{from:0,to:3,count:k,mode:'compress',fastAfter:2,fastScale:2}};
+  }
+
+  /* ---------- 2. Pix2Pix: one training step ---------- */
+  function pixSpec(Q){
+    const obj=pressed('#pixObj')||'L1+cGAN',unet=(pressed('#pixArch')||'UNet')==='UNet',useD=obj!=='L1',useL1=obj!=='cGAN';
+    const inLabel=()=>cv('pnXs').textContent;
+    /* the live mini U-Net: encoder bars left to right, then decoder bars from the bottleneck out; skip arcs light with their decoder level */
+    const unetBars=()=>{const s=cv('unetMini'),r=[...s.querySelectorAll('rect')],p=[...s.querySelectorAll('path')];if(r.length<16)return null;
+      const enc=[],dec=[];for(let i=0;i<8;i++){enc.push(r[2*i]);dec.unshift(r[2*i+1])}
+      return{bars:enc.concat(dec),skips:p.map((el,i)=>({el,to:15-i}))}};
+    const patchBars=()=>{const r=[...cv('patchMini').querySelectorAll('rect')];return r.length?{bars:r.slice(0,5).concat([r[r.length-1]])}:null};
+    const P=[
+      {on:['x'],cap:()=>`The input x: a ${inLabel()} image. Pix2Pix needs paired data, so every x comes with its target y.`},
+      {on:['x','G'],flow:['x_G'],sweep:'G',dur:3600,cap:unet?'The U-Net encoder shrinks x to a 1 × 1 bottleneck through eight stride-2 convolutions; the decoder mirrors it, and skip connections copy each encoder layer to its mirror so edges survive.':'Without skip connections every detail must squeeze through the 1 × 1 × 512 bottleneck, so the output comes out blurrier.'},
+      {on:['G','out'],flow:['G_out'],cap:'G(x) comes out at full resolution. There is no z input: dropout in the decoder is the only source of randomness.'}];
+    if(useD)P.push(
+      {on:['x','out','y','D'],flow:[{id:'x_D',c:MUT,n:4},{id:'out_D',c:GEN},{id:'y_D',c:REAL}],sweep:'D',dur:3200,cap:'D sees x stacked with an image along the channels: (x, y) is a real pair, (x, G(x)) a fake pair. Seeing x lets it reject outputs that look real but do not match the input.'},
+      {on:['D','map'],flow:['D_map'],cap:()=>`PatchGAN gives one real/fake verdict per 70 × 70 patch instead of one score per image. For this output, ${cv('pixReal').textContent} of the patches pass as real.`});
+    P.push({on:(useD?['map']:[]).concat(useL1?['y','out']:[],['loss']),flow:(useD?['map_loss']:[]).concat(useL1?[{id:'y_loss',c:REAL,n:4}]:[]),
+      cap:obj==='L1'?'L1 only: no discriminator. G is pushed toward the pixel-wise average of plausible answers, so outputs are blurry but correctly laid out.':obj==='cGAN'?'cGAN only: outputs are sharp, but nothing ties them to y, so artifacts and wrong layouts appear.':'The full objective L_cGAN + λ·L1 with λ = 100: L1 keeps the layout close to y, the adversarial term makes every patch look real.'});
+    P.push({on:useD?['loss','map','D','out','G']:['loss','out','G'],flow:(useD?[{id:'map_loss',rev:true},{id:'D_map',rev:true},{id:'out_D',rev:true}]:[]).concat([{id:'G_out',rev:true,n:4}]),sweep:'G',dur:3200,
+      cap:useD?'Backpropagation: the gradient runs back through the frozen D and through G(x) into G, which is updated to fool D and stay close to y. D is updated in an alternating step. At test time only x → G runs.':'Backpropagation: the L1 gradient runs back through G(x) into G. At test time only x → G runs.'});
+    return{accent:GEN,dur:2500,
+      attach:{flow:Q.flow,svg:Q.svg,barHost:Q.fb,nodes:Q.nodes,bars:{G:unetBars,D:patchBars},
+        edges:named(Q.paths,['x_G','G_out','out_D','y_D','x_D','D_map','map_loss','y_loss']),
+        ends:{x_G:['x','G'],G_out:['G','out'],out_D:['out','D'],y_D:['y','D'],x_D:['x','D'],D_map:['D','map'],map_loss:['map','loss'],y_loss:['y','loss']}},
+      onPhase:(it,A)=>{A.badge.textContent=`${obj==='L1+cGAN'?'L1 + cGAN':obj==='L1'?'L1 only':'cGAN only'} · ${unet?'U-Net':'encoder-decoder'} · epoch ${cv('pixEpochOut').textContent}`},
+      phases:P};
+  }
+
+  /* ---------- 3. Text-to-image GANs ---------- */
+  function t2iSpec(Q){
+    const id=pressed('#tModel')||'attn',M=T2I_MODELS[id],n=M.stages.length,attn=id==='attn',ganint=id==='ganint',res=M.stages.map(s=>s.res);
+    const stageIds=['s1','s2','s3'].slice(0,n);
+    const P=[
+      {on:['prompt','enc'],flow:['p_enc'],cap:attn?'A bidirectional LSTM reads the caption and produces a sentence vector plus one feature vector per word.':'A pretrained char-CNN-RNN encoder turns the caption into one sentence embedding φ(t).'},
+      {on:['enc','ca','z'],flow:['enc_ca'],cap:ganint?'GAN-INT-CLS compresses the sentence embedding to 128 dimensions and concatenates it with noise z, which covers what the text leaves open. (It has no conditioning augmentation; that came with StackGAN.)':'Conditioning augmentation samples c = μ + σ ⊙ ε around the sentence vector; noise z covers what the text leaves open, such as pose and background.'},
+      {on:['ca','z','s1'],flow:['ca_s1','z_s1'],sweep:'s1',dur:3400,cap:ganint?'One generator upsamples [φ; z] straight to the final 64 × 64 image. Shapes are often distorted at this size.':'Stage I upsamples [c; z] to 64 × 64: the rough shape and main colours, often distorted.'}];
+    if(n>1)P.push({on:['s1','s2'].concat(attn?['enc']:[]),flow:['s1_s2'].concat(attn?[{id:'w2',c:MUT,n:4}]:[]),sweep:'s2',dur:3400,cap:attn?'Stage II upsamples to 128 × 128. For every image region an attention module picks the most relevant words, so "red", "wings" or "crown" can shape their own regions.':`Stage II reads the text condition again, encodes the Stage-I image, corrects its defects and upsamples to ${res[1]} × ${res[1]}.`});
+    if(n>2)P.push({on:['s2','s3','enc'],flow:['s2_s3',{id:'w2',c:MUT,n:3},{id:'w3',c:MUT,n:3}],sweep:'s3',dur:3400,cap:'Stage III attends to the words again at 256 × 256 and adds fine texture and part-level detail.'});
+    P.push({on:stageIds.concat(['D']),flow:n===3?[{id:'s3_D',c:DIS}]:[],sweep:'D',dur:3200,cap:(n>1?'During training every stage has its own discriminator. ':'During training, ')+'D also reads the sentence and must say "real" only for a real image with its own caption; generated images and real images with the wrong caption both count as fake.'+(attn?' AttnGAN adds the DAMSM loss for word-to-region agreement.':'')+' At generation time D is not used.'});
+    return{accent:GEN,dur:2700,
+      attach:{flow:Q.flow,svg:Q.svg,barHost:Q.fb,nodes:Q.nodes,bars:{s1:blocks('tMs1'),s2:blocks('tMs2'),s3:blocks('tMs3'),D:blocks('tMD')},
+        edges:named(Q.paths,['p_enc','enc_ca','ca_s1','z_s1','s1_s2','s2_s3','s3_D','w2','w3']),
+        ends:{p_enc:['prompt','enc'],enc_ca:['enc','ca'],ca_s1:['ca','s1'],z_s1:['z','s1'],s1_s2:['s1','s2'],s2_s3:['s2','s3'],s3_D:['s3','D'],w2:['enc','s2'],w3:['enc','s3']}},
+      onPhase:(it,A)=>{A.badge.textContent=`${M.name} (${M.year}) · ${n} generator stage${n>1?'s':''} · final ${res[n-1]}×${res[n-1]}`},
+      phases:P};
+  }
+
+  const anims={},SPECS={gan:ganSpec,pix2pix:pixSpec,text2image:t2iSpec};
+  function mount(view){if(anims[view])anims[view].destroy();anims[view]=new ArchAnim(null,SPECS[view](parts(view)))}
+  function init(){
+    if(!window.ArchAnim)return;
+    /* the hint under each title now mentions the animation */
+    document.querySelectorAll('.view .flowhead span').forEach(s=>{s.textContent=s.textContent.replace(/\.?\s*$/,'. The diagram animates one pass; pause or step with the controls below it.')});
+    MLPViz.build('gnArchG',[2,32,32,2],['LeakyReLU','LeakyReLU','linear'],'var(--gen)');
+    MLPViz.build('gnArchD',[2,48,48,1],['LeakyReLU','LeakyReLU','sigmoid'],'var(--dis)');
+    const live=()=>{const T=GanUI.T;if(T){MLPViz.update('gnArchG',T.G);MLPViz.update('gnArchD',T.D)}};live();
+    setInterval(()=>{if(activeView==='gan'&&!document.hidden)live()},300);
+    Object.keys(SPECS).forEach(mount);
+    cv('ganK').addEventListener('change',()=>mount('gan'));
+    document.querySelectorAll('#pixObj button,#pixArch button').forEach(b=>b.addEventListener('click',()=>setTimeout(()=>mount('pix2pix'),0)));
+    document.querySelectorAll('#tModel button').forEach(b=>b.addEventListener('click',()=>setTimeout(()=>mount('text2image'),0)));
+  }
+  return{init};
+})();
+ArchGAN.init();
 </script>
 </body></html>

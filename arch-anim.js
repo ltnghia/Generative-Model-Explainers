@@ -44,13 +44,26 @@ const CSS=`
 .aa-stg{display:block;font:500 11.5px var(--font-mono,ui-monospace,monospace);color:var(--aa-acc);letter-spacing:.02em;margin-bottom:2px}
 .aa-speed{display:flex;align-items:center;gap:6px;font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);flex:none}
 .aa-speed select{padding:3px 6px;font-size:.85rem}
-@media (prefers-reduced-motion:reduce){.aa-edge.on{animation:none}.aa-box,.aa-node{transition:none}}
+/* attach mode: animating a diagram that already exists in the page */
+.aa-attached{margin-top:6px;padding:10px 2px 6px;border-top:1px dashed var(--line)}
+.aa-badgeh{display:block;font:600 11.5px var(--font-mono,ui-monospace,monospace);color:var(--aa-acc);margin-top:3px}
+.flow.aa-run svg.arrows path,.flow.aa-run svg.arrows path.live{opacity:.38;animation:none;transition:opacity .3s}
+.flow.aa-run svg.arrows path.on{opacity:1!important;stroke:var(--aa-acc);stroke-width:2.3;stroke-dasharray:6 5;animation:aa-dash .8s linear infinite}
+.flow.aa-run svg.arrows path.on.rev{animation-direction:reverse}
+.flow.aa-run svg.arrows .aa-dot{fill:var(--aa-acc)}
+.flow.aa-run .node{transition:opacity .3s,box-shadow .3s,border-color .3s}
+.flow.aa-run .node.dim{opacity:.42}
+.flow.aa-run .node.on{border-color:var(--aa-acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--aa-acc) 30%,transparent)}
+.flow.aa-run svg rect.hot{opacity:1!important;stroke:var(--ink)!important;stroke-opacity:1!important;stroke-width:1.6;fill-opacity:.95!important}
+.flow.aa-run svg path.hot{opacity:1!important;stroke-width:2.6}
+@media (prefers-reduced-motion:reduce){.aa-edge.on,.flow.aa-run svg.arrows path.on{animation:none}.aa-box,.aa-node,.flow.aa-run .node{transition:none}}
 `;
 
 class ArchAnim{
   constructor(host,spec){
     this.host=host;this.spec=spec;this.uid=++UID;
     if(!styled){styled=true;const st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st)}
+    if(spec.attach){this.attachTo(spec.attach);return}
     this.root=H('div','aa',host);this.root.style.setProperty('--aa-acc',spec.accent||'var(--ink)');
     const sc=H('div','aa-scroll',this.root);
     const svg=this.svg=S('svg',{viewBox:`0 0 ${spec.w} ${spec.h}`,role:'img','aria-label':spec.label||'Animated architecture diagram'},sc);
@@ -90,14 +103,30 @@ class ArchAnim{
     }
     const ba=spec.badgeAt||[spec.w-14,spec.h-10];
     this.badge=S('text',{x:ba[0],y:ba[1],class:'aa-badge','text-anchor':'end'},svg);
-    /* controls */
+    this.controls();
+  }
+  /* animate a diagram that already exists: page nodes, page arrows, page mini-figures */
+  attachTo(A){
+    const acc=this.spec.accent||'var(--ink)';this.attached=true;
+    this.root=H('div','aa aa-attached',A.barHost);this.root.style.setProperty('--aa-acc',acc);
+    this.flowEl=A.flow;A.flow.classList.add('aa-run');A.flow.style.setProperty('--aa-acc',acc);
+    this.svg=A.svg;this.gP=S('g',{class:'aa-dots'},A.svg);
+    this.edges={};for(const id in A.edges){const e=A.ends&&A.ends[id]||[];this.edges[id]={el:A.edges[id],def:{from:e[0],to:e[1]},len:0}}
+    this.nodes={};this.onClick=[];
+    for(const id in A.nodes){const el=A.nodes[id];if(!el)continue;
+      this.nodes[id]={def:{t:((el.querySelector('.t')||el).textContent||'').trim(),info:(A.info||{})[id]||''},g:el,subs:[],barsFn:(A.bars||{})[id]};
+      const f=()=>{if(!this.dead)this.explain(id)};el.addEventListener('click',f);this.onClick.push([el,f])}
+    this.controls(true);
+  }
+  controls(attached){
     const bar=H('div','aa-bar',this.root),btns=H('div','aa-btns',bar);
     this.bPrev=H('button','',btns,'‹');this.bPrev.title='Previous stage';this.bPrev.setAttribute('aria-label','Previous stage');
     this.bPlay=H('button','pri',btns,'');
     this.bNext=H('button','',btns,'›');this.bNext.title='Next stage';this.bNext.setAttribute('aria-label','Next stage');
     this.bRe=H('button','',btns,'↺');this.bRe.title='Restart';this.bRe.setAttribute('aria-label','Restart');
     [this.bPrev,this.bPlay,this.bNext,this.bRe].forEach(b=>b.type='button');
-    this.cap=H('p','aa-cap',bar);this.cap.setAttribute('aria-live','polite');
+    const cw=H('div','aa-cap',bar);this.cap=H('p','',cw);this.cap.style.margin='0';this.cap.setAttribute('aria-live','polite');
+    if(attached)this.badge=H('span','aa-badgeh',cw);
     const sp=H('label','aa-speed',bar,'Speed ');const sel=H('select','',sp);sel.id='aa-speed-'+this.uid;sp.htmlFor=sel.id;
     [[.5,'0.5×'],[1,'1×'],[2,'2×'],[4,'4×']].forEach(([v,l])=>sel.add(new Option(l,v)));sel.value='1';
     this.speed=1;sel.addEventListener('change',()=>this.speed=+sel.value);
@@ -136,12 +165,13 @@ class ArchAnim{
     else if(it.hold){ph=P[P.length-1];on=ph.on||[];flow=[];this.setIter(it.iter)}
     else{ph=P[it.ph];on=ph.on||[];flow=(ph.flow||[]).map(f=>typeof f==='string'?{id:f}:f);this.setIter(it.iter)}
     this.ph=ph;
+    if(this.spec.onPhase){try{this.spec.onPhase(it,this)}catch(e){console.error(e)}}
     for(const id in this.nodes){const g=this.nodes[id].g;g.classList.toggle('on',on.includes(id));g.classList.toggle('dim',on.length>0&&!on.includes(id))}
     for(const id in this.edges)this.edges[id].el.classList.toggle('on',flow.some(f=>f.id===id));
-    for(const id in this.nodes){const n=this.nodes[id];if(n.bars){n.bars.forEach(b=>b.classList.remove('hot'));n.skips.forEach(s=>s.el.classList.remove('hot'))}}
+    for(const id in this.nodes){const b=this.barsOf(id);if(b){b.bars.forEach(x=>x.classList.remove('hot'));b.skips.forEach(s=>s.el.classList.remove('hot'))}}
     this.gP.textContent='';
     this.flows=REDUCED?[]:flow.map(f=>{const e=this.edges[f.id];if(!e)return null;if(!e.len)e.len=e.el.getTotalLength();const n=f.n||3;
-      const dots=Array.from({length:n},()=>{const c=S('circle',{r:f.r||4.2,class:'aa-dot',opacity:0},this.gP);if(f.c)c.style.fill=f.c;return c});return{e,dots}}).filter(Boolean);
+      const dots=Array.from({length:n},()=>{const c=S('circle',{r:f.r||4.2,class:'aa-dot',opacity:0},this.gP);if(f.c)c.style.fill=f.c;return c});e.el.classList.toggle('rev',!!f.rev);return{e,dots,rev:!!f.rev}}).filter(Boolean);
     const L=this.L,np=P.length;let stg,txt;
     if(it.ff){stg=`Stages ${L.from+1}–${L.to+1} of ${np} · repeating`;txt=typeof this.spec.ffCap==='function'?this.spec.ffCap(it.from,it.to):`The same loop repeats for iterations ${it.from+1} to ${it.to+1}.`}
     else if(it.hold){stg='Finished · restarting';txt=typeof ph.cap==='function'?ph.cap(it.iter):ph.cap}
@@ -164,26 +194,37 @@ class ArchAnim{
     for(const f of this.flows){const n=f.dots.length;f.dots.forEach((d,j)=>{
       const q=it.ff?((p*7+j/n)%1):(p*1.35-j*.17);
       if(q<=0||q>=1){d.setAttribute('opacity',0);return}
-      const pt=f.e.el.getPointAtLength(q*f.e.len);d.setAttribute('cx',pt.x);d.setAttribute('cy',pt.y);d.setAttribute('opacity',Math.min(1,Math.min(q,1-q)*8))})}
+      const pt=f.e.el.getPointAtLength((f.rev?1-q:q)*f.e.len);d.setAttribute('cx',pt.x);d.setAttribute('cy',pt.y);d.setAttribute('opacity',Math.min(1,Math.min(q,1-q)*8))})}
     const sw=it.ff?this.loopSweeps():(this.ph&&this.ph.sweep?[].concat(this.ph.sweep):[]);
     const ps=it.ff?(p*5)%1:p;
-    for(const id of sw){const n=this.nodes[id];if(!n||!n.bars)continue;const k=n.bars.length,hot=Math.min(k-1,Math.floor(ps*k));
+    const rev=!it.ff&&this.ph&&this.ph.sweepRev,seq=!it.ff&&this.ph&&this.ph.sweepSeq;
+    if(seq){/* one sweep running through several networks in turn */
+      let all=[];sw.forEach(id=>{const n=this.barsOf(id);if(n)all=all.concat(n.bars.map((el,i)=>({el,i,n})))});if(rev)all.reverse();
+      const hot=Math.min(all.length-1,Math.floor(ps*all.length));all.forEach((x,j)=>x.el.classList.toggle('hot',j===hot));
+      const h=all[hot];sw.forEach(id=>{const n=this.barsOf(id);if(n)n.skips.forEach(s=>s.el.classList.toggle('hot',!!h&&h.n.bars===n.bars&&s.to===h.i))});
+    }else for(const id of sw){const n=this.barsOf(id);if(!n||!n.bars.length)continue;const k=n.bars.length;let hot=Math.min(k-1,Math.floor(ps*k));if(rev)hot=k-1-hot;
       n.bars.forEach((b,i)=>b.classList.toggle('hot',i===hot));n.skips.forEach(s=>s.el.classList.toggle('hot',s.to===hot))}
     if(it.ff&&t!=null){const i=Math.min(it.to,it.from+Math.floor(p*(it.to-it.from+1)));if(i!==this.iter&&t-this.ffT>110){this.ffT=t;this.setIter(i)}}
     if(this.ph&&this.ph.tick)this.ph.tick(p,this);
   }
+  barsOf(id){const n=this.nodes[id];if(!n)return null;if(n.barsFn){try{const r=n.barsFn();return r?{bars:r.bars||[],skips:r.skips||[]}:null}catch(e){return null}}return n.bars?{bars:n.bars,skips:n.skips||[]}:null}
   loopSweeps(){const P=this.spec.phases,L=this.L;return[...new Set(P.slice(L.from,L.to+1).flatMap(p=>p.sweep?[].concat(p.sweep):[]))]}
   explain(id){const n=this.nodes[id];if(!n)return;this.explaining=true;this.playing=false;this.updatePlay();
     for(const k in this.nodes){this.nodes[k].g.classList.toggle('on',k===id);this.nodes[k].g.classList.toggle('dim',k!==id)}
-    for(const k in this.edges){const d=this.edges[k].def;this.edges[k].el.classList.toggle('on',d.from===id||d.to===id)}
+    const used=new Set(this.spec.phases.flatMap(p=>(p.flow||[]).map(f=>typeof f==='string'?f:f.id)));
+    for(const k in this.edges){const d=this.edges[k].def;this.edges[k].el.classList.toggle('on',used.has(k)&&(d.from===id||d.to===id));this.edges[k].el.classList.remove('rev')}
     this.gP.textContent='';this.flows=[];
-    this.cap.innerHTML=`<span class="aa-stg">Component · press Play to continue</span><b>${n.def.t}.</b> ${n.def.info||''}`}
+    this.cap.innerHTML=`<span class="aa-stg">Component · press Play to continue</span><b>${n.def.t}.</b> ${n.def.info||(this.attached?'Its description is open in the details panel below.':'')}`}
   /* API used by pages */
   setImg(id,canvas){const n=this.nodes[id];if(!n||!n.img)return;if(canvas)n.img.setAttribute('href',canvas.toDataURL());else n.img.removeAttribute('href')}
   setSub(id,i,text){const n=this.nodes[id];if(n&&n.subs[i])n.subs[i].textContent=text}
   setTitle(id,text){const n=this.nodes[id];if(n)n.title.textContent=text}
   setMeter(id,f){const n=this.nodes[id];if(n&&n.meter)n.meter.setAttribute('width',Math.max(0,Math.min(1,f))*n.meterW)}
-  destroy(){cancelAnimationFrame(this.raf);try{this.io&&this.io.disconnect()}catch(e){}this.root.remove()}
+  destroy(){this.dead=true;cancelAnimationFrame(this.raf);try{this.io&&this.io.disconnect()}catch(e){}this.root.remove();
+    if(this.attached){this.gP.remove();(this.onClick||[]).forEach(([el,f])=>el.removeEventListener('click',f));
+      for(const id in this.nodes)this.nodes[id].g.classList.remove('on','dim');for(const id in this.edges)this.edges[id].el.classList.remove('on','rev');
+      for(const id in this.nodes){const b=this.barsOf(id);if(b){b.bars.forEach(x=>x.classList.remove('hot'));b.skips.forEach(s=>s.el.classList.remove('hot'))}}
+      this.flowEl.classList.remove('aa-run')}}
   /* layout helpers */
   static unet(w,h){const hs=[1,.78,.58,.42,.3,.42,.58,.78,1],n=hs.length,step=w/n,bw=Math.min(18,step*.55);
     return{items:hs.map((f,i)=>({x:i*step+(step-bw)/2,y:(h-h*f)/2,w:bw,h:h*f})),skips:[[3,5],[2,6],[1,7],[0,8]]}}
