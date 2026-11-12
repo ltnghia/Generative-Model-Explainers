@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en" data-explainer="var">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script>try{if(window.frameElement&&window.frameElement.id==="frame")document.documentElement.classList.add("embedded")}catch(e){}</script>
+<title>VAR Explainer</title>
+<style>
+:root{
+  /* Layout idea: a lab bench on top (controls + 4-stage pipeline you can scrub through), a drawer of deep-dive panels, then a long-form article. Each model has its own ink colour. */
+  --bg:#f4f5f8; --panel:#ffffff; --ink:#161b2a; --muted:#5c6477; --line:#dce0e9; --soft:#eceff5;
+  --var:#3054d1; --swi:#cf6316; --inf:#a42f96;
+  --m:var(--var);
+  --fd:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --fb:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --fm:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1118; --panel:#161a24; --ink:#e6e9f1; --muted:#9aa2b4; --line:#2a3041; --soft:#1d2230;
+    --var:#7f9cff; --swi:#f2994d; --inf:#e27bd4; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1118; --panel:#161a24; --ink:#e6e9f1; --muted:#9aa2b4; --line:#2a3041; --soft:#1d2230;
+  --var:#7f9cff; --swi:#f2994d; --inf:#e27bd4; color-scheme: dark;
+}
+body[data-model="var"]{--m:var(--var)}
+body[data-model="switti"]{--m:var(--swi)}
+body[data-model="infinity"]{--m:var(--inf)}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink); font:15px/1.6 var(--fb); -webkit-font-smoothing:antialiased}
+a{color:var(--m)}
+h1,h2,h3{font-family:var(--fd); text-wrap:balance; line-height:1.2; margin:0}
+code,.mono{font-family:var(--fm); font-size:.92em}
+button,select,input{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--m); outline-offset:2px}
+
+/* top bar */
+.top{display:flex; flex-wrap:wrap; align-items:center; gap:12px 28px; padding:14px 24px; background:var(--panel); border-bottom:1px solid var(--line)}
+.brand{display:flex; align-items:baseline; gap:10px}
+.brand h1{font-size:24px; font-weight:700; letter-spacing:-.01em}
+.brand h1 span{color:var(--m)}
+.top p{margin:0; color:var(--muted); flex:1 1 320px}
+.top nav{display:flex; gap:14px; flex-wrap:wrap; font-size:14px}
+.top nav a{text-decoration:none; border-bottom:1px solid transparent}
+.top nav a:hover{border-color:currentColor}
+
+/* controls */
+.controls{display:flex; flex-wrap:wrap; align-items:center; gap:14px 22px; padding:16px 24px; border-bottom:1px solid var(--line)}
+.seg{display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--panel)}
+.seg button{border:0; background:transparent; padding:7px 16px; cursor:pointer; text-align:left; line-height:1.25; border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button b{display:block; font-family:var(--fd); font-size:16px}
+.seg button small{color:var(--muted); font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--m); color:#fff}
+.seg button[aria-pressed="true"] small{color:rgba(255,255,255,.85)}
+.ctl{display:flex; align-items:center; gap:8px}
+.ctl label{font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em}
+select{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:7px 10px; max-width:420px}
+.btn{display:inline-flex; align-items:center; gap:8px; background:var(--m); color:#fff; border:0; border-radius:999px; padding:8px 18px; font-weight:600; cursor:pointer}
+.btn.ghost{background:transparent; color:var(--m); border:1px solid var(--m)}
+.btn svg{width:14px; height:14px}
+input[type=range]{accent-color:var(--m); width:200px}
+.stepinfo{font-family:var(--fm); font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.stepinfo b{color:var(--ink); font-weight:500}
+
+.gallery{display:flex; align-items:center; gap:14px; padding:12px 24px; border-bottom:1px solid var(--line); overflow-x:auto}
+.glabel{font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; white-space:nowrap}
+.gal{display:flex; gap:8px}
+.gal button{border:2px solid transparent; background:var(--panel); border-radius:9px; padding:2px; cursor:pointer; flex:0 0 auto; position:relative}
+.gal button[aria-pressed="true"]{border-color:var(--m)}
+.gal canvas{width:64px; height:64px; border-radius:6px; display:block}
+.gal small{position:absolute; left:4px; bottom:4px; font:500 10px/1 var(--fm); color:#fff; background:rgba(0,0,0,.55); border-radius:4px; padding:2px 4px; max-width:58px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+@media (max-width:760px){.gallery{padding-left:16px;padding-right:16px}}
+/* pipeline */
+.pipe{display:grid; grid-template-columns:minmax(200px,1fr) 28px minmax(220px,1.05fr) 28px minmax(220px,1.05fr) 28px minmax(270px,1.25fr); align-items:stretch; gap:0; padding:22px 24px 8px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; min-width:0}
+.card h3{font-size:16px; display:flex; justify-content:space-between; align-items:baseline; gap:8px}
+.card h3 small{font-family:var(--fm); font-weight:400; font-size:11.5px; color:var(--muted)}
+.card .sub{font-size:13px; color:var(--muted); margin:0}
+.arrow{display:flex; align-items:center; justify-content:center; color:var(--m)}
+.arrow svg{width:22px; height:22px}
+canvas{display:block}
+.pix{image-rendering:pixelated; image-rendering:crisp-edges}
+.canvas-wrap{display:flex; justify-content:center}
+.blk{border:1px solid var(--line); border-left:3px solid var(--m); border-radius:8px; padding:7px 10px; font-size:13.5px; background:var(--soft)}
+.blk small{display:block; color:var(--muted); font-size:12px}
+.chip{display:inline-block; font-family:var(--fm); font-size:12px; background:var(--m); color:#fff; border-radius:6px; padding:1px 7px}
+.quote{font-style:italic; font-size:14px; border-left:2px solid var(--line); padding-left:10px; margin:0}
+.flow{display:flex; flex-direction:column; gap:6px}
+.flow .down{text-align:center; color:var(--muted); font-size:12px; line-height:1}
+.badge{display:inline-block; font-size:12px; border:1px solid var(--m); color:var(--m); border-radius:999px; padding:1px 9px}
+.kv{display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0; font-family:var(--fm); font-size:12.5px}
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.toggle{display:inline-flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; font-size:12px}
+.toggle button{border:0; background:transparent; padding:3px 9px; cursor:pointer}
+.toggle button[aria-pressed="true"]{background:var(--soft); color:var(--m); font-weight:600}
+.film{display:flex; gap:8px; overflow-x:auto; padding:6px 24px 4px}
+.film button{border:1px solid var(--line); background:var(--panel); border-radius:8px; padding:4px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; flex:0 0 auto}
+.film button[aria-current="true"]{border-color:var(--m); box-shadow:0 0 0 2px color-mix(in srgb, var(--m) 30%, transparent)}
+.film span{font-family:var(--fm); font-size:10.5px; color:var(--muted)}
+.film button.future canvas{opacity:.28}
+.note{margin:6px 24px 0; font-size:12.5px; color:var(--muted); max-width:1100px}
+
+/* deep dive */
+.deep{margin:22px 24px 0; background:var(--panel); border:1px solid var(--line); border-radius:12px}
+.tabs{display:flex; flex-wrap:wrap; border-bottom:1px solid var(--line); padding:0 8px}
+.tabs button{border:0; background:transparent; padding:12px 14px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px; font-weight:500}
+.tabs button[aria-selected="true"]{color:var(--ink); border-color:var(--m)}
+.tabs button .dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-left:6px; vertical-align:middle}
+.panel{padding:18px 20px 22px; display:none}
+.panel.on{display:block}
+.panel p{max-width:72ch; margin:0 0 10px}
+.quad{display:grid; grid-template-columns:repeat(4, minmax(130px,1fr)); gap:14px; margin:12px 0}
+.quad figure, .trio figure{margin:0; display:flex; flex-direction:column; gap:6px; align-items:center}
+figcaption{font-size:12.5px; color:var(--muted); text-align:center; line-height:1.35}
+.trio{display:grid; grid-template-columns:repeat(3, minmax(150px,1fr)); gap:16px; margin:12px 0}
+.split{display:grid; grid-template-columns:minmax(260px, 380px) 1fr; gap:24px; align-items:start}
+.bars{display:flex; flex-direction:column; gap:5px; font-size:12.5px}
+.bar{display:grid; grid-template-columns:118px 1fr 52px; gap:8px; align-items:center; font-family:var(--fm); font-size:12px; font-variant-numeric:tabular-nums}
+.bar .track{height:12px; background:var(--soft); border-radius:3px; overflow:hidden}
+.bar .fill{height:100%; background:var(--m)}
+.bar.tgt .fill{background:var(--m)} .bar:not(.tgt) .fill{opacity:.45}
+.sw{display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:-1px; margin-right:5px; border:1px solid var(--line)}
+.calc{display:grid; grid-template-columns:repeat(3, minmax(150px,1fr)); gap:12px; margin-top:10px}
+.stat{border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+.stat b{display:block; font-family:var(--fd); font-size:22px; font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px; color:var(--muted)}
+.psnr{font-family:var(--fm); font-size:12.5px}
+
+/* tooltip */
+#tip{position:fixed; pointer-events:none; background:var(--ink); color:var(--bg); font:12px/1.4 var(--fm); padding:6px 8px; border-radius:6px; z-index:20; display:none; max-width:240px}
+
+/* article */
+article{max-width:760px; margin:48px auto 0; padding:0 24px}
+article h2{font-size:30px; margin:46px 0 12px; letter-spacing:-.01em}
+article h2 .tag{font-family:var(--fm); font-size:12px; font-weight:500; color:#fff; background:var(--c, var(--var)); border-radius:5px; padding:2px 7px; vertical-align:6px; margin-left:6px}
+article h3{font-size:19px; margin:26px 0 8px}
+article p, article li{font-size:16.5px; line-height:1.7}
+article ul, article ol{padding-left:22px}
+article li{margin:4px 0}
+.eq{font-family:var(--fm); font-size:15px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 16px; margin:14px 0; overflow-x:auto; white-space:nowrap}
+.callout{border-left:3px solid var(--c, var(--m)); background:var(--panel); padding:10px 14px; border-radius:0 8px 8px 0; font-size:15px; margin:16px 0}
+.tablewrap{overflow-x:auto; margin:16px -24px; padding:0 24px}
+table{border-collapse:collapse; width:100%; min-width:720px; font-size:14px; background:var(--panel)}
+th,td{border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top}
+th{font-family:var(--fd); font-weight:700; background:var(--soft)}
+td:first-child{color:var(--muted); white-space:nowrap}
+.cV{--c:var(--var)} .cS{--c:var(--swi)} .cI{--c:var(--inf)}
+th.cV{border-top:3px solid var(--var)} th.cS{border-top:3px solid var(--swi)} th.cI{border-top:3px solid var(--inf)}
+.refs li{font-size:14.5px}
+footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1px solid var(--line); color:var(--muted); font-size:13.5px}
+
+@media (max-width:1180px){
+  .pipe{grid-template-columns:1fr 1fr; gap:14px}
+  .arrow{display:none}
+}
+@media (max-width:760px){
+  .pipe{grid-template-columns:1fr}
+  .quad{grid-template-columns:repeat(2,1fr)}
+  .trio{grid-template-columns:1fr}
+  .split{grid-template-columns:1fr}
+  .calc{grid-template-columns:1fr}
+  .top,.controls,.pipe{padding-left:16px; padding-right:16px}
+  .deep{margin-left:16px; margin-right:16px}
+  input[type=range]{width:150px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body data-model="var">
+
+<header class="top">
+  <div class="brand"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="2" width="30" height="30" rx="6" fill="var(--m)" opacity=".18"/><rect x="5" y="5" width="7" height="7" rx="1.5" fill="var(--m)"/><rect x="14" y="5" width="6" height="6" rx="1" fill="var(--m)" opacity=".8"/><rect x="22" y="5" width="3" height="3" fill="var(--m)" opacity=".7"/><rect x="26" y="5" width="3" height="3" fill="var(--m)" opacity=".7"/><rect x="22" y="9" width="3" height="3" fill="var(--m)" opacity=".7"/><rect x="26" y="9" width="3" height="3" fill="var(--m)" opacity=".7"/><rect x="5" y="15" width="24" height="14" rx="2" fill="var(--m)" opacity=".45"/></svg><h1><span>VAR</span> Explainer</h1></div>
+  <p>See how visual autoregressive models paint an image coarse-to-fine, predicting one whole <em>scale</em> of tokens per step. Covers VAR, SWITTI and Infinity.</p>
+  <nav aria-label="Papers">
+    <a href="https://arxiv.org/abs/2404.02905">VAR paper</a>
+    <a href="https://arxiv.org/abs/2412.01819">SWITTI paper</a>
+    <a href="https://arxiv.org/abs/2412.04431">Infinity paper</a>
+    <a href="#article">Read the explanation ↓</a>
+  </nav>
+</header>
+
+<section class="controls" aria-label="Controls">
+  <div class="seg" role="group" aria-label="Model">
+    <button data-model="var" aria-pressed="true"><b>VAR</b><small>class → image · 2024</small></button>
+    <button data-model="switti" aria-pressed="false"><b>SWITTI</b><small>text → image · non-causal</small></button>
+    <button data-model="infinity" aria-pressed="false"><b>Infinity</b><small>text → image · bitwise</small></button>
+  </div>
+  <div class="ctl"><label for="prompt" id="promptLabel">Class</label><select id="prompt"></select></div>
+  <button class="btn" id="play" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2l11 6-11 6z" fill="currentColor"/></svg><span>Generate</span></button>
+  <div class="ctl"><label for="scale">Scale</label><input type="range" id="scale" min="1" max="10" value="10"><span class="stepinfo" id="stepinfo"></span></div>
+</section>
+
+<section class="gallery" aria-label="Examples"><span class="glabel" id="galLabel">10 examples</span><div class="gal" id="gallery"></div></section>
+
+<section class="pipe" aria-label="Generation pipeline">
+  <div class="card" id="condCard">
+    <h3><span id="condTitle">Class condition</span><small>input</small></h3>
+    <div id="condBody" class="flow"></div>
+  </div>
+  <div class="arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+  <div class="card">
+    <h3><span>Scale-wise transformer</span> <small id="tfSize"></small></h3>
+    <div class="row" style="align-items:flex-start; justify-content:space-between">
+      <figure style="margin:0; display:flex; flex-direction:column; gap:4px; align-items:center">
+        <canvas id="tfIn" class="pix" width="128" height="128" style="width:104px;height:104px;border:1px solid var(--line);border-radius:4px"></canvas>
+        <figcaption id="tfInCap">input</figcaption>
+      </figure>
+      <figure style="margin:0; display:flex; flex-direction:column; gap:4px; align-items:center">
+        <canvas id="maskMini" width="208" height="208" style="width:104px;height:104px"></canvas>
+        <figcaption>attention mask</figcaption>
+      </figure>
+    </div>
+    <div class="row"><span class="badge" id="attnBadge"></span></div>
+    <p class="sub" id="tfText"></p>
+  </div>
+  <div class="arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+  <div class="card">
+    <h3><span>Token map r<sub id="tokK">k</sub></span> <small id="tokSize"></small></h3>
+    <div class="row" id="tokToggles"></div>
+    <div class="canvas-wrap"><canvas id="tok" class="pix" width="256" height="256" style="width:200px;height:200px;border-radius:4px;cursor:crosshair"></canvas></div>
+    <p class="sub" id="tokText"></p>
+  </div>
+  <div class="arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h14m-5-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+  <div class="card">
+    <h3><span>Decoder → image</span> <small id="imgSize"></small></h3>
+    <div class="canvas-wrap"><canvas id="img" width="256" height="256" style="width:100%;max-width:280px;aspect-ratio:1;border-radius:6px"></canvas></div>
+    <p class="sub" id="imgText"></p>
+  </div>
+</section>
+<div class="film" id="film" aria-label="All scales"></div>
+<p class="note">How to read this: pictures are drawn in your browser and encoded by a small working residual quantizer, so every token map you see is real for this toy. A trained model learns to <em>predict</em> exactly these maps, one scale per forward pass. Real tokenizers work in a learned 16×-downsampled latent space; here the latent is a downsampled RGB image and the "decoder" is upsampling plus the fine detail a CNN decoder would add. Hover the token map to inspect a token.</p>
+
+<section class="deep" aria-label="Deep dive">
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="tokenizer">Multi-scale tokenizer</button>
+    <button role="tab" aria-selected="false" data-tab="attention">Attention across scales</button>
+    <button role="tab" aria-selected="false" data-tab="head">Prediction head &amp; guidance</button>
+    <button role="tab" aria-selected="false" data-tab="speed">Why it's fast</button>
+    <button role="tab" aria-selected="false" data-tab="bsc">Bitwise self-correction<span class="dot" style="background:var(--inf)"></span></button>
+  </div>
+
+  <div class="panel on" id="p-tokenizer">
+    <p id="tokzIntro"></p>
+    <div class="quad">
+      <figure><canvas id="tz1" class="pix" width="192" height="192" style="width:100%;max-width:170px"></canvas><figcaption>① Residual still missing<br><span class="mono">f − f̂<sub>k−1</sub></span> (latent grid)</figcaption></figure>
+      <figure><canvas id="tz2" class="pix" width="192" height="192" style="width:100%;max-width:170px"></canvas><figcaption>② Downsample to h<sub>k</sub>×w<sub>k</sub> and quantize → <span class="mono">r<sub>k</sub></span></figcaption></figure>
+      <figure><canvas id="tz3" class="pix" width="192" height="192" style="width:100%;max-width:170px"></canvas><figcaption>③ Look up codes, upsample back to the latent grid</figcaption></figure>
+      <figure><canvas id="tz4" class="pix" width="192" height="192" style="width:100%;max-width:170px"></canvas><figcaption>④ Running sum <span class="mono">f̂<sub>k</sub> = f̂<sub>k−1</sub> + ③</span></figcaption></figure>
+    </div>
+    <div class="split">
+      <canvas id="energy" width="760" height="260" style="width:100%;max-width:380px"></canvas>
+      <p id="energyText" style="font-size:14px"></p>
+    </div>
+  </div>
+
+  <div class="panel" id="p-attention">
+    <div class="split">
+      <canvas id="maskBig" width="760" height="760" style="width:100%;max-width:380px"></canvas>
+      <div id="attnText"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-head">
+    <div class="split">
+      <div>
+        <p id="headSel" style="font-size:14px"></p>
+        <div class="bars" id="headBars"></div>
+        <div class="ctl" style="margin-top:12px"><label for="tau">Temperature</label><input type="range" id="tau" min="0.2" max="3" step="0.05" value="1"><span class="stepinfo" id="tauOut">1.00</span></div>
+      </div>
+      <div>
+        <div id="headText"></div>
+        <h3 style="font-size:15px;margin:16px 0 6px">Classifier size: one softmax vs. bitwise heads</h3>
+        <div class="ctl"><label for="dbits">Bits per token d</label><input type="range" id="dbits" min="8" max="64" value="32"><span class="stepinfo" id="dOut"></span></div>
+        <div class="calc">
+          <div class="stat"><b id="cConv"></b><span>softmax head, h·2<sup>d</sup> weights</span></div>
+          <div class="stat"><b id="cIvc"></b><span>Infinity's IVC, h·2d weights</span></div>
+          <div class="stat"><b id="cSave"></b><span>parameters saved (h = 2048)</span></div>
+        </div>
+        <h3 style="font-size:15px;margin:18px 0 6px">Classifier-free guidance per scale</h3>
+        <canvas id="cfg" width="760" height="200" style="width:100%;max-width:480px"></canvas>
+        <p id="cfgText" style="font-size:13.5px;color:var(--muted)"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="p-speed">
+    <p id="speedIntro"></p>
+    <div class="row" style="margin:6px 0 10px"><button class="btn" id="raceBtn" type="button">Run both</button><button class="btn ghost" id="raceStop" type="button">Stop</button></div>
+    <div class="trio" style="grid-template-columns:repeat(2,minmax(150px,260px))">
+      <figure><canvas id="raceAR" class="pix" width="256" height="256" style="width:100%;max-width:240px;border-radius:6px"></canvas><figcaption><b>Raster next-token</b><br><span class="psnr" id="raceARc"></span></figcaption></figure>
+      <figure><canvas id="raceVAR" class="pix" width="256" height="256" style="width:100%;max-width:240px;border-radius:6px"></canvas><figcaption><b>Next-scale</b><br><span class="psnr" id="raceVARc"></span></figcaption></figure>
+    </div>
+    <p id="speedText" style="font-size:14px"></p>
+  </div>
+
+  <div class="panel" id="p-bsc">
+    <p>Infinity trains with <b>Bitwise Self-Correction</b>. During generation the transformer will sometimes sample a wrong bit. A model trained only on clean targets (teacher forcing) has never seen its own mistakes, so the error stays in the picture. BSC randomly flips bits during training and then <em>recomputes the residual targets</em> for later scales, so later scales learn to cancel earlier errors. Below, the same random bit errors (probability p per bit, at every scale) hit the Infinity-style tokenizer of the current picture.</p>
+    <div class="row"><div class="ctl"><label for="flipP">Bit-error rate p</label><input type="range" id="flipP" min="0" max="0.4" step="0.01" value="0.1"><span class="stepinfo" id="flipOut"></span></div><button class="btn ghost" id="reflip" type="button">New random errors</button></div>
+    <div class="trio">
+      <figure><canvas id="bsc0" width="256" height="256" style="width:100%;max-width:230px;border-radius:6px"></canvas><figcaption><b>No errors</b><br><span class="psnr" id="bsc0c"></span></figcaption></figure>
+      <figure><canvas id="bsc1" width="256" height="256" style="width:100%;max-width:230px;border-radius:6px"></canvas><figcaption><b>Errors, no correction</b> (teacher-forced targets)<br><span class="psnr" id="bsc1c"></span></figcaption></figure>
+      <figure><canvas id="bsc2" width="256" height="256" style="width:100%;max-width:230px;border-radius:6px"></canvas><figcaption><b>Errors + self-correction</b> (re-quantized targets)<br><span class="psnr" id="bsc2c"></span></figcaption></figure>
+    </div>
+    <p style="font-size:13.5px;color:var(--muted)">In the paper, flip probabilities drawn from U[0, p] with p = 30% worked best (FID 3.33, ImageReward 0.775, HPSv2.1 31.05). Flipping bits <em>without</em> re-quantizing the targets gave no benefit, which is what the middle image illustrates: corrupted inputs alone teach the model nothing about how to repair them.</p>
+  </div>
+</section>
+
+<div id="tip" role="tooltip"></div>
+
+<article id="article">
+  <h2>What is VAR?</h2>
+  <p>Large language models write text one token at a time: each new token is predicted from everything before it. Early image generators borrowed this recipe directly. VQGAN, DALL·E 1 and Parti first compress an image into a grid of discrete tokens, then flatten the grid row by row and predict it left-to-right, top-to-bottom, the way you would read a page.</p>
+  <p>Raster order is a poor fit for pictures. A token near the top cannot see the content below it, nearby pixels in the same column end up far apart in the sequence, and a 1024×1024 image needs thousands of sequential forward passes.</p>
+  <p><b>VAR</b> (Visual AutoRegressive modeling, Tian et al., Peking University &amp; ByteDance) keeps the autoregressive recipe but changes what "next" means. Instead of predicting the next <em>token</em>, it predicts the next <em>scale</em>. It first produces a 1×1 token map holding the overall colour and layout, then a 2×2 map, then 3×3, and so on up to 16×16. Each map is conditioned on all the coarser ones, and every token inside a map is predicted in parallel. The paper received the NeurIPS 2024 Best Paper Award.</p>
+  <div class="eq">p(r<sub>1</sub>, r<sub>2</sub>, …, r<sub>K</sub>) = ∏<sub>k=1..K</sub> p( r<sub>k</sub> | r<sub>1</sub>, …, r<sub>k−1</sub> )   where r<sub>k</sub> ∈ [V]<sup>h<sub>k</sub>×w<sub>k</sub></sup></div>
+  <p>A painter works the same way: block in the big shapes, then refine. The visualization above shows this. Drag the <b>Scale</b> slider back to 1 and press <b>Generate</b> to watch the picture sharpen as each scale is added.</p>
+
+  <h2>Step 1 · Turning an image into multi-scale tokens</h2>
+  <p>VAR has two stages, trained separately. The first is a tokenizer: a VQGAN-style autoencoder whose encoder shrinks a 256×256 image 16× to a feature map <span class="mono">f</span> of 16×16 vectors. Its quantizer is replaced by a <b>multi-scale residual quantizer</b>:</p>
+  <ol>
+    <li>Start with the full residual <span class="mono">f</span> and an empty reconstruction <span class="mono">f̂ = 0</span>.</li>
+    <li>For each scale k: downsample the residual to h<sub>k</sub>×w<sub>k</sub> and replace every vector with its nearest entry in a codebook of <b>V = 4096</b> vectors. The indices form the token map <span class="mono">r<sub>k</sub></span>.</li>
+    <li>Look the codes up, upsample them back to 16×16, pass them through a small convolution φ<sub>k</sub>, add them to <span class="mono">f̂</span>, and subtract them from the residual.</li>
+    <li>The decoder turns the final <span class="mono">f̂</span>, the sum of all scales, into pixels.</li>
+  </ol>
+  <p>One codebook is shared by every scale. For 256×256 images VAR uses ten scales, <span class="mono">1, 2, 3, 4, 5, 6, 8, 10, 13, 16</span>, which is 680 tokens in total. Each scale only stores what the coarser scales missed, so the residual's energy falls quickly from step to step. Open the <b>Multi-scale tokenizer</b> tab to watch each stage of one step.</p>
+
+  <h2>Step 2 · The scale-wise transformer</h2>
+  <p>The second stage is a decoder-only transformer in the GPT-2 mould with adaptive layer norm (AdaLN), as in DiT. For class-conditional ImageNet generation, the class embedding acts both as the <b>start token</b> [s], which predicts the 1×1 map, and as the AdaLN condition in every block.</p>
+  <ul>
+    <li><b>Input for scale k:</b> the reconstruction so far, <span class="mono">f̂<sub>k−1</sub></span>, interpolated to h<sub>k</sub>×w<sub>k</sub>, plus position and level embeddings. Output: a probability distribution over the 4096 codes at each of the h<sub>k</sub>·w<sub>k</sub> positions, all at once.</li>
+    <li><b>Training</b> uses teacher forcing. The whole sequence ([s], r<sub>1</sub>, …, r<sub>K−1</sub>) goes through the network in one pass under a <b>block-wise causal mask</b>: a token sees every token of its own scale and of all coarser scales, and nothing finer. Cross-entropy is computed on all 680 targets in parallel.</li>
+    <li><b>Inference</b> takes K forward passes with a KV cache: sample r<sub>k</sub> (top-k / top-p sampling plus classifier-free guidance), add its codes to f̂, interpolate, repeat. The decoder runs once at the end.</li>
+    <li><b>Model family:</b> depth d sets everything else, with width 64d and d attention heads, giving about 73,728·d³ parameters. VAR-d16, d20, d24 and d30 have 310M, 600M, 1.0B and 2.0B parameters.</li>
+  </ul>
+
+  <h2>Why next-scale prediction is fast</h2>
+  <p>For an n×n token grid, a raster model needs n² sequential steps, and with attention over a growing prefix its total compute grows as O(n⁶). VAR needs one step per scale, about O(log n) steps, and O(n⁴) total compute. In practice the paper reports VAR is roughly <b>20× faster</b> than the VQGAN and ViT-VQGAN autoregressive baselines, and DiT-XL/2 takes about 45× VAR's wall-clock time. The <b>Why it's fast</b> tab races the two orderings with one forward pass per tick.</p>
+
+  <h2>Results and scaling laws</h2>
+  <ul>
+    <li><b>ImageNet 256×256:</b> VAR-d30 improves the autoregressive baseline from FID 18.65 / IS 80.4 to FID <b>1.73</b> / IS <b>350.2</b> with rejection sampling (1.92 / 323.1 without). This was the first time a GPT-style model beat diffusion transformers on this benchmark.</li>
+    <li><b>ImageNet 512×512:</b> VAR-d36 reaches FID 2.63, against 3.04 for DiT-XL/2.</li>
+    <li><b>Scaling laws:</b> test loss follows a power law in model size, for example L ≈ (2.0·N)<sup>−0.23</sup> on the last scale, with Pearson correlations near −0.998. That is the kind of predictable scaling seen in language models.</li>
+    <li><b>Zero-shot editing:</b> if you teacher-force the ground-truth tokens outside a mask and let the model fill in the rest, you get in-painting, out-painting and class-conditional editing without any fine-tuning.</li>
+  </ul>
+  <div class="callout cV">VAR left three obvious gaps: it only handles class labels, a 4096-entry codebook limits how much detail the tokenizer keeps, and the causal attention over all previous scales needs a KV cache that keeps growing. SWITTI addresses the first and third; Infinity addresses the first two.</div>
+
+  <h2 class="cS">SWITTI<span class="tag">text-to-image</span></h2>
+  <p><b>SWITTI</b> (Voronov et al., Yandex Research, CVPR 2025) is a scale-wise transformer for text-to-image generation. It starts from the VAR recipe and makes a series of changes, each motivated by a measurement.</p>
+  <h3>Text conditioning</h3>
+  <p>Prompts are encoded by two text encoders, CLIP ViT-L and OpenCLIP ViT-bigG, whose token embeddings are concatenated along the channel axis. Each transformer block gains a <b>cross-attention</b> layer between self-attention and the feed-forward network. The pooled bigG embedding, plus SDXL-style crop-coordinate embeddings, drives AdaLN, which is where the class embedding used to go.</p>
+  <h3>Keeping training stable</h3>
+  <p>Scaling VAR to text-to-image made activation norms blow up during training. SWITTI fixes this by computing the prediction head in FP32 under mixed precision and by adding <em>sandwich normalization</em> (extra norms after attention and FFN). It also adopts RMSNorm, QK-norm, normalized 2D RoPE and SwiGLU feed-forward layers.</p>
+  <h3>Dropping causal attention</h3>
+  <p>The authors measured where a causal scale-wise model actually looks and found that attention concentrates on the <em>current</em> scale. Earlier scales already reach the model through its input, which is the upsampled running sum f̂<sub>k−1</sub>. SWITTI therefore restricts self-attention to tokens of the current scale. There is no KV cache, which saves up to 2.3 GB of memory per 1024² image and makes sampling about 21% faster. In human evaluation the non-causal model is on par with or slightly better than the causal variant. Switch the model to SWITTI and open <b>Attention across scales</b> to compare the masks.</p>
+  <h3>Guidance only where it matters</h3>
+  <p>Classifier-free guidance doubles the work at every step. SWITTI applies guidance (scale 6) on the early, structure-defining scales and switches it off on the last two, which are the most expensive. This gives about 32% extra speed-up and fewer fine-grained artifacts, though the paper notes late guidance can still help render small text.</p>
+  <h3>Tokenizer, data and speed</h3>
+  <p>SWITTI reuses VAR's tokenizer with its encoder and codebook frozen, fine-tuning only the decoder at 512² (L1, LPIPS and adversarial losses). The model has about 2.5B parameters (d = 30). It is pre-trained at 256² and 512² with 10 scales, then works at 1024² with 14 scales. Training data is about 100M image–text pairs filtered from roughly 6B web pairs and re-captioned with LLaVA and ShareGPT4V, followed by fine-tuning on about 40K curated pairs. A full 1024² generation takes about <b>0.5 s</b> on an A100, against 2.3 s for SDXL (25 steps) and 3.9 s for SD3-Medium.</p>
+
+  <h2 class="cI">Infinity<span class="tag">bitwise tokens</span></h2>
+  <p><b>Infinity</b> (Han et al., ByteDance, CVPR 2025) comes from the same group as VAR. Its starting point is the tokenizer: with only 4096 codes, fine detail is lost before the transformer even sees it. Increasing the vocabulary to 2³² codes would make reconstructions much sharper, but a softmax head over 2³² classes would need h·2³² ≈ 8.8 trillion weights at width h = 2048. Infinity's answer is to predict <b>bits</b> instead of indices.</p>
+  <h3>Bitwise multi-scale residual quantizer</h3>
+  <p>The scale-by-scale residual scheme stays the same, but each residual vector is quantized to d binary values, the signs of its d dimensions after projection onto a sphere. This is binary spherical quantization (BSQ). The implicit vocabulary is 2<sup>d</sup>, and BSQ's entropy term costs O(d) rather than the O(2<sup>d</sup>) of lookup-free quantization (LFQ). That lets the tokenizer scale to 2⁶⁴ while LFQ runs out of memory at d = 20. The text-to-image model uses d = 32. On ImageNet 256 the 2³² tokenizer reaches rFID 0.61, better than the continuous SD VAE's 0.87.</p>
+  <h3>Infinite-Vocabulary Classifier (IVC)</h3>
+  <p>Instead of one 2<sup>d</sup>-way softmax, IVC attaches d independent binary classifiers, one per bit. Parameter count drops from h·2<sup>d</sup> to h·2d, which is 99.95% fewer weights already at d = 16. Bitwise prediction is also more forgiving: two codes that differ in one bit are close in feature space, so a nearly-right guess is still useful. The <b>Prediction head</b> tab shows both kinds of output for any token you hover.</p>
+  <h3>Bitwise Self-Correction (BSC)</h3>
+  <p>Teacher forcing trains each scale on perfect inputs, but at inference the model consumes its own, imperfect samples, and errors pile up. BSC randomly flips bits of each scale with a probability drawn from U[0, p], then recomputes the residual and re-quantizes the targets for all later scales. The model therefore learns to correct mistakes from coarser scales. It adds no extra compute, and p = 30% worked best. Try it in the <b>Bitwise self-correction</b> tab.</p>
+  <h3>Other changes</h3>
+  <ul>
+    <li><b>Text encoder:</b> Flan-T5, injected by cross-attention in every block.</li>
+    <li><b>Positions:</b> 2D RoPE on each scale plus learnable scale embeddings, replacing VAR's absolute position embeddings, which handle varying sequence lengths poorly. This also converges faster.</li>
+    <li><b>Aspect ratios:</b> a predefined scale schedule for each aspect ratio keeps tokens per scale roughly equal, so Infinity can generate 1:1, 4:3, 16:9 and even 1:3 or 3:1 images. VAR was square-only.</li>
+    <li><b>Scales:</b> a 1024×1024 image is generated in 13 scales growing from 1×1 to 64×64. Training runs progressively at 256, 512 and then 1024.</li>
+  </ul>
+  <h3>Results</h3>
+  <p>Infinity-2B scores GenEval 0.73 (with prompt rewriting), ImageReward 0.962 and HPSv2.1 32.25, against 0.62 / 0.871 / 30.91 for SD3-Medium, and wins 66% of human comparisons with it. It generates a 1024² image in about <b>0.8 s</b>, 2.6× faster than SD3-Medium. Across model sizes from 125M to 4.7B parameters, validation loss tracks downstream quality closely (correlation −0.983 with GenEval), and larger models benefit more from larger vocabularies.</p>
+
+  <h2>VAR vs. SWITTI vs. Infinity</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th></th><th class="cV">VAR</th><th class="cS">SWITTI</th><th class="cI">Infinity</th></tr></thead>
+    <tbody>
+      <tr><td>Venue</td><td>NeurIPS 2024 (Best Paper)</td><td>CVPR 2025</td><td>CVPR 2025</td></tr>
+      <tr><td>Task</td><td>Class → image (ImageNet)</td><td>Text → image</td><td>Text → image, any aspect ratio</td></tr>
+      <tr><td>Tokenizer</td><td>Multi-scale residual VQ-VAE, shared codebook V = 4096</td><td>VAR's tokenizer, encoder and codebook frozen, decoder fine-tuned</td><td>Bitwise multi-scale residual quantizer (BSQ), vocabulary 2<sup>d</sup>, d = 32 for T2I</td></tr>
+      <tr><td>Scales</td><td>10 for 256² (1→16, 680 tokens)</td><td>10 for 512², 14 for 1024²</td><td>13 for 1024² (1→64)</td></tr>
+      <tr><td>Attention across scales</td><td>Block-wise causal, KV cache</td><td>Current scale only, no KV cache</td><td>Block-wise causal, KV cache</td></tr>
+      <tr><td>Conditioning</td><td>Class embedding as start token + AdaLN</td><td>CLIP ViT-L + OpenCLIP bigG, cross-attention; pooled text → AdaLN</td><td>Flan-T5, cross-attention</td></tr>
+      <tr><td>Output head</td><td>4096-way softmax</td><td>4096-way softmax (FP32)</td><td>d binary classifiers (IVC)</td></tr>
+      <tr><td>Positions</td><td>Learned absolute + level embeddings</td><td>Normalized 2D RoPE</td><td>2D RoPE + learnable scale embeddings</td></tr>
+      <tr><td>Guidance</td><td>CFG, strength ramps up with scale in the official sampler</td><td>CFG 6, switched off on last 2 scales</td><td>CFG</td></tr>
+      <tr><td>Main size</td><td>2.0B (d30)</td><td>≈2.5B (d30)</td><td>2.2B (Infinity-2B)</td></tr>
+      <tr><td>Headline numbers</td><td>FID 1.73, IS 350.2 (ImageNet 256)</td><td>≈0.5 s per 1024² image, 7× faster than diffusion</td><td>GenEval 0.73, ≈0.8 s per 1024² image</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Where next-scale prediction went next</h2>
+  <p>VAR started a large family of follow-ups. <b>HART</b> pairs discrete scale-wise tokens with a small diffusion model for the continuous residual. <b>FlowAR</b> replaces the per-scale categorical prediction with flow matching, and <b>FlexVAR</b> predicts each scale directly rather than as a residual. ByteDance scaled the bitwise line to <b>Infinity-8B</b> and then to <b>InfinityStar</b> (NeurIPS 2025 Oral), an 8B spacetime-pyramid model that generates 720p video and scores 83.74 on VBench, ahead of HunyuanVideo, while being roughly 10× faster than leading diffusion video models.</p>
+
+  <h2>About this explainer</h2>
+  <p>The interactive part runs a real residual quantizer on procedurally drawn pictures, so the token maps, residuals and error-correction effects are computed rather than faked. To keep it fast and self-contained, the toy simplifies three things. Its latent space is a downsampled RGB image rather than a learned 16× latent. Its VQ codebook is a fixed 16×16×16 grid of 4096 colour offsets rather than learned vectors (it has no φ<sub>k</sub> convolutions). The Infinity mode uses 12 bits per token, 4 successive binary refinements per colour channel, instead of BSQ's 32 sign bits on a hypersphere. Scale schedules are those of the real models: VAR 256², VAR's 512² schedule as used by SWITTI, and Infinity 1024² at 1:1.</p>
+
+  <h2>References</h2>
+  <ol class="refs">
+    <li>K. Tian, Y. Jiang, Z. Yuan, B. Peng, L. Wang. <a href="https://arxiv.org/abs/2404.02905">Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction</a>. NeurIPS 2024. <a href="https://github.com/FoundationVision/VAR">Code</a>.</li>
+    <li>A. Voronov et al. <a href="https://arxiv.org/abs/2412.01819">Switti: Designing Scale-Wise Transformers for Text-to-Image Synthesis</a>. CVPR 2025. <a href="https://github.com/yandex-research/switti">Code</a>.</li>
+    <li>J. Han, J. Liu, Y. Jiang, B. Yan, Y. Zhang, Z. Yuan, B. Peng, X. Liu. <a href="https://arxiv.org/abs/2412.04431">Infinity: Scaling Bitwise AutoRegressive Modeling for High-Resolution Image Synthesis</a>. CVPR 2025. <a href="https://github.com/FoundationVision/Infinity">Code</a>.</li>
+    <li>J. Liu, J. Han, B. Yan et al. <a href="https://arxiv.org/abs/2511.04675">InfinityStar: Unified Spacetime AutoRegressive Modeling for Visual Generation</a>. NeurIPS 2025.</li>
+    <li>S. Lee et al. <a href="https://poloclub.github.io/diffusion-explainer/">Diffusion Explainer</a>, Georgia Tech Polo Club, which inspired the layout of this page.</li>
+  </ol>
+</article>
+<footer>VAR Explainer · an interactive companion to the VAR, SWITTI and Infinity papers. Numbers quoted are from the papers; images are generated in your browser.</footer>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const N=256;
+
+const MODELS={
+  var:{name:'VAR',scales:[1,2,3,4,5,6,8,10,13,16],res:256,quant:'vq',attn:'causal',size:'d30 · 2.0B',
+       condTitle:'Class condition',promptLabel:'Class',
+       prompts:[
+         {label:'1 · goldfish',scene:'goldfish'},{label:'301 · ladybug',scene:'ladybug'},{label:'323 · monarch butterfly',scene:'monarch'},
+         {label:'417 · balloon',scene:'balloon'},{label:'437 · beacon, lighthouse',scene:'lighthouse'},{label:"607 · jack-o'-lantern",scene:'pumpkin'},
+         {label:'780 · schooner',scene:'schooner'},{label:'963 · pizza',scene:'pizza'},{label:'970 · alp',scene:'alp'},{label:'980 · volcano',scene:'volcano'}]},
+  switti:{name:'SWITTI',scales:[1,2,3,4,6,9,13,18,24,32],res:512,quant:'vq',attn:'local',size:'d30 · ≈2.5B',
+       condTitle:'Text prompt',promptLabel:'Prompt',
+       prompts:[
+         {label:'A lighthouse on a rocky cliff at sunset',scene:'lighthouse'},{label:'An erupting volcano under a starry night sky',scene:'volcano'},
+         {label:'A striped hot-air balloon drifting over green hills',scene:'balloon'},{label:'A city skyline at night reflected in a river',scene:'city'},
+         {label:'A cherry blossom tree in full bloom in spring',scene:'cherry'},{label:'Red toadstool mushrooms in a misty forest',scene:'mushroom'},
+         {label:'A meadow of white daisies under a blue sky',scene:'daisy'},{label:'A colorful coral reef with tropical fish',scene:'reef'},
+         {label:'Fresh strawberries with whipped cream on a white plate',scene:'strawberry'},{label:'A red torii gate standing in the sea at dawn',scene:'torii'}]},
+  infinity:{name:'Infinity',scales:[1,2,4,6,8,12,16,20,24,32,40,48,64],res:1024,quant:'bits',attn:'causal',size:'Infinity-2B',
+       condTitle:'Text prompt',promptLabel:'Prompt',
+       prompts:[
+         {label:'Northern lights over a snowy pine forest',scene:'aurora'},{label:'A ringed gas giant floating in deep space',scene:'planet'},
+         {label:'Golden sand dunes in the desert at midday',scene:'dunes'},{label:'A cabin by a mountain lake under the full moon',scene:'lakeside'},
+         {label:'A tall ship sailing at golden hour',scene:'schooner'},{label:'Snow-capped alpine peaks above a green valley',scene:'alp'},
+         {label:'A monarch butterfly resting on purple flowers',scene:'monarch'},{label:'A goldfish swimming in a clear aquarium',scene:'goldfish'},
+         {label:"A glowing jack-o'-lantern on a wooden table",scene:'pumpkin'},{label:'A pepperoni pizza with fresh basil, top view',scene:'pizza'}]}
+};
+const LEVELS=[-0.7,-0.45,-0.3,-0.2,-0.12,-0.07,-0.035,-0.01,0.01,0.035,0.07,0.12,0.2,0.3,0.45,0.7];
+const BITS_PER_CH=4, DBITS=12;
+const state={model:'var',prompt:0,k:10,view:'id',bit:0,selU:0.5,selV:0.5,tau:1,playing:null};
+
+function css(v){return getComputedStyle(document.body).getPropertyValue(v).trim()}
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- procedural scenes ---------- */
+function drawLighthouse(c,R){
+  let g=c.createLinearGradient(0,0,0,170);g.addColorStop(0,'#272a62');g.addColorStop(.45,'#9b456b');g.addColorStop(.8,'#f08846');g.addColorStop(1,'#ffd37c');
+  c.fillStyle=g;c.fillRect(0,0,N,170);
+  for(let i=0;i<9;i++){c.fillStyle='rgba(255,190,150,'+(0.12+R()*0.18)+')';c.beginPath();c.ellipse(R()*N,30+R()*90,30+R()*50,3+R()*4,0,0,7);c.fill()}
+  let rg=c.createRadialGradient(182,160,4,182,160,70);rg.addColorStop(0,'rgba(255,240,190,.9)');rg.addColorStop(1,'rgba(255,200,120,0)');c.fillStyle=rg;c.fillRect(100,90,170,90);
+  c.fillStyle='#fff3c4';c.beginPath();c.arc(182,160,20,0,7);c.fill();
+  g=c.createLinearGradient(0,165,0,N);g.addColorStop(0,'#45457d');g.addColorStop(1,'#121a3a');c.fillStyle=g;c.fillRect(0,165,N,N-165);
+  for(let i=0;i<260;i++){const y=167+R()*89;const spread=(y-160)*1.3;const x=182+(R()-.5)*spread*2;const w=3+R()*16;c.fillStyle='rgba(255,'+(170+R()*70|0)+',110,'+(0.12+R()*0.5)*(1-(y-165)/120)+')';c.fillRect(x,y,w,1+R())}
+  for(let i=0;i<220;i++){c.fillStyle='rgba(180,190,255,'+(R()*0.18)+')';c.fillRect(R()*N,170+R()*86,4+R()*10,1)}
+  c.fillStyle='#1b1520';c.beginPath();c.moveTo(0,N);c.lineTo(0,118);c.lineTo(28,110);c.lineTo(72,116);c.lineTo(104,134);c.lineTo(122,168);c.lineTo(148,200);c.lineTo(160,N);c.closePath();c.fill();
+  for(let i=0;i<120;i++){const x=R()*140,y=120+R()*136;if(x>y*0.55+20&&y<170)continue;c.fillStyle=R()<.5?'rgba(70,55,75,.55)':'rgba(10,8,14,.6)';c.beginPath();c.moveTo(x,y);c.lineTo(x+3+R()*8,y+R()*4);c.lineTo(x+R()*5,y+3+R()*7);c.fill()}
+  c.save();c.beginPath();c.moveTo(42,118);c.lineTo(68,118);c.lineTo(62,52);c.lineTo(48,52);c.closePath();c.clip();
+  c.fillStyle='#f4efe6';c.fillRect(40,50,30,70);c.fillStyle='#c8323a';for(let y=58;y<118;y+=16)c.fillRect(40,y,30,8);
+  let sh=c.createLinearGradient(42,0,68,0);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(30,10,40,.45)');c.fillStyle=sh;c.fillRect(40,50,30,70);c.restore();
+  c.fillStyle='#2a2030';c.fillRect(45,49,20,4);
+  c.fillStyle='#ffe58a';c.fillRect(48,38,14,11);c.fillStyle='#2a2030';c.fillRect(47,37,2,12);c.fillRect(61,37,2,12);
+  c.fillStyle='#8e2430';c.beginPath();c.moveTo(45,38);c.lineTo(55,27);c.lineTo(65,38);c.fill();
+  c.fillStyle='rgba(255,240,180,.22)';c.beginPath();c.moveTo(60,42);c.lineTo(N,8);c.lineTo(N,72);c.closePath();c.fill();
+  rg=c.createRadialGradient(55,43,1,55,43,24);rg.addColorStop(0,'rgba(255,245,200,.9)');rg.addColorStop(1,'rgba(255,230,160,0)');c.fillStyle=rg;c.fillRect(25,15,60,60);
+  c.strokeStyle='rgba(30,20,40,.8)';c.lineWidth=1.2;for(let i=0;i<5;i++){const x=110+R()*90,y=60+R()*50,s=3+R()*3;c.beginPath();c.moveTo(x-s,y-s*.6);c.quadraticCurveTo(x-s*.4,y-s*.7,x,y);c.quadraticCurveTo(x+s*.4,y-s*.7,x+s,y-s*.6);c.stroke()}
+}
+function drawVolcano(c,R){
+  let g=c.createLinearGradient(0,0,0,200);g.addColorStop(0,'#05081c');g.addColorStop(.6,'#181d4a');g.addColorStop(1,'#5a2440');c.fillStyle=g;c.fillRect(0,0,N,N);
+  for(let i=0;i<320;i++){const s=R();c.fillStyle='rgba(255,255,'+(200+R()*55|0)+','+(0.3+R()*0.7)+')';const sz=s<.93?1:2;c.fillRect(R()*N,R()*170,sz,sz)}
+  c.fillStyle='#e8e6f2';c.beginPath();c.arc(210,40,12,0,7);c.fill();c.fillStyle='#05081c';c.beginPath();c.arc(216,36,11,0,7);c.fill();
+  for(let i=0;i<70;i++){const t=R();const x=125-t*90+(R()-.5)*30, y=90-t*80+(R()-.5)*16;c.fillStyle='rgba('+(70+R()*40|0)+','+(55+R()*30|0)+','+(70+R()*30|0)+','+(0.25+R()*0.35)+')';c.beginPath();c.arc(x,y,8+t*22*R()+4,0,7);c.fill()}
+  let rg=c.createRadialGradient(128,98,2,128,98,80);rg.addColorStop(0,'rgba(255,170,60,.85)');rg.addColorStop(1,'rgba(255,80,30,0)');c.fillStyle=rg;c.fillRect(40,20,180,160);
+  g=c.createLinearGradient(0,96,0,N);g.addColorStop(0,'#3a2420');g.addColorStop(1,'#0f0a0b');c.fillStyle=g;
+  c.beginPath();c.moveTo(-10,N);c.lineTo(108,100);c.lineTo(148,100);c.lineTo(266,N);c.closePath();c.fill();
+  for(let i=0;i<160;i++){const y=104+R()*150;const half=20+(y-100)*0.75;const x=128+(R()-.5)*2*half;c.fillStyle=R()<.5?'rgba(90,60,55,.45)':'rgba(0,0,0,.45)';c.fillRect(x,y,2+R()*5,1+R()*2)}
+  const streams=[[128,100,100,160,70,250],[130,100,150,170,175,250],[126,100,118,150,112,220],[134,102,170,140,210,240]];
+  streams.forEach(s=>{c.lineCap='round';c.strokeStyle='#ff5a16';c.lineWidth=4.5;c.beginPath();c.moveTo(s[0],s[1]);c.quadraticCurveTo(s[2],s[3],s[4],s[5]);c.stroke();c.strokeStyle='#ffd25a';c.lineWidth=1.6;c.stroke()});
+  for(let i=0;i<90;i++){const a=-Math.PI/2+(R()-.5)*1.6;const r=R()*50;c.fillStyle=R()<.5?'#ffcf55':'#ff6a1a';c.fillRect(128+Math.cos(a)*r,98+Math.sin(a)*r,1.5+R()*2,1.5+R()*2)}
+  c.fillStyle='#0b0708';c.beginPath();c.moveTo(0,N);c.lineTo(0,228);for(let x=0;x<=N;x+=16)c.lineTo(x,226+R()*10);c.lineTo(N,N);c.fill();
+}
+function drawBalloon(c,R){
+  let g=c.createLinearGradient(0,0,0,190);g.addColorStop(0,'#3d9cf2');g.addColorStop(1,'#d2efff');c.fillStyle=g;c.fillRect(0,0,N,N);
+  const cloud=(x,y,s)=>{for(let i=0;i<9;i++){c.fillStyle='rgba(255,255,255,'+(0.55+R()*0.4)+')';c.beginPath();c.arc(x+(R()-.5)*s*2.2,y+(R()-.5)*s*.6,s*(.35+R()*.45),0,7);c.fill()}};
+  cloud(50,40,20);cloud(200,28,16);cloud(120,70,12);cloud(230,95,10);
+  c.fillStyle='rgba(255,255,255,.95)';c.beginPath();c.ellipse(44,120,7,9,0,0,7);c.fill();c.fillStyle='#6a4a2a';c.fillRect(41,131,6,4);
+  const hill=(base,amp,f,ph,col)=>{c.fillStyle=col;c.beginPath();c.moveTo(0,N);for(let x=0;x<=N;x+=4)c.lineTo(x,base+Math.sin(x*f+ph)*amp+Math.sin(x*f*2.3+ph*1.7)*amp*.35);c.lineTo(N,N);c.fill()};
+  hill(168,9,.02,1,'#8ccf96');hill(190,12,.017,3,'#59ad66');
+  for(let i=0;i<40;i++){const x=R()*N,y=186+R()*24;c.fillStyle='#2f6e3b';c.beginPath();c.arc(x,y,2.5+R()*3,0,7);c.fill()}
+  hill(222,10,.013,5,'#2f8040');
+  for(let i=0;i<500;i++){const x=R()*N,y=214+R()*42;c.strokeStyle=R()<.5?'rgba(20,70,30,.7)':'rgba(140,210,120,.6)';c.lineWidth=1;c.beginPath();c.moveTo(x,y);c.lineTo(x+(R()-.5)*3,y-3-R()*5);c.stroke()}
+  c.save();c.beginPath();c.moveTo(150,152);c.bezierCurveTo(108,120,98,92,104,70);c.bezierCurveTo(112,36,188,36,196,70);c.bezierCurveTo(202,92,192,120,150,152);c.closePath();c.clip();
+  const cols=['#e63946','#f4a261','#2a9d8f','#f6f1e0','#e9c46a','#3b5ba5'];for(let i=0;i<8;i++){c.fillStyle=cols[i%cols.length];c.fillRect(96+i*13.5,30,13.5,130)}
+  let rg=c.createRadialGradient(130,62,4,150,90,70);rg.addColorStop(0,'rgba(255,255,255,.35)');rg.addColorStop(.6,'rgba(0,0,0,0)');rg.addColorStop(1,'rgba(10,20,50,.45)');c.fillStyle=rg;c.fillRect(90,30,120,130);c.restore();
+  c.strokeStyle='#4a3826';c.lineWidth=1;[[132,138,144,162],[168,138,156,162],[150,152,150,162]].forEach(l=>{c.beginPath();c.moveTo(l[0],l[1]);c.lineTo(l[2],l[3]);c.stroke()});
+  c.fillStyle='#7a5530';c.fillRect(142,161,16,11);c.fillStyle='#5b3d20';for(let x=143;x<158;x+=3)c.fillRect(x,161,1,11);
+}
+/* ---------- more scenes (helpers) ---------- */
+function G(c,x0,y0,x1,y1,st){const g=c.createLinearGradient(x0,y0,x1,y1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g}
+function RG(c,x,y,r0,r1,st){const g=c.createRadialGradient(x,y,r0,x,y,r1);st.forEach(s=>g.addColorStop(s[0],s[1]));return g}
+function circ(c,x,y,r,col){c.fillStyle=col;c.beginPath();c.arc(x,y,Math.max(.1,r),0,7);c.fill()}
+function ell(c,x,y,rx,ry,rot,col){c.fillStyle=col;c.beginPath();c.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),rot,0,7);c.fill()}
+function poly(c,pts,col){c.fillStyle=col;c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.closePath();c.fill()}
+function rect(c,x,y,w,h,col){c.fillStyle=col;c.fillRect(x,y,w,h)}
+function stars(c,R,n,h){for(let i=0;i<n;i++){c.fillStyle='rgba(255,255,'+(210+R()*45|0)+','+(0.25+R()*0.75)+')';const z=R()<.93?1:2;c.fillRect(R()*N,R()*h,z,z)}}
+function ridge(c,R,base,lo,hi,n,col){const pk=[];c.fillStyle=col;c.beginPath();c.moveTo(0,N);c.lineTo(0,base);for(let i=0;i<=n;i++){const x=i*N/n+(R()-.5)*N/n*.5,top=i%2===0;const y=top?lo+R()*(hi-lo):base-R()*(base-hi)*.35;c.lineTo(x,y);if(top)pk.push([x,y])}c.lineTo(N,base);c.lineTo(N,N);c.fill();return pk}
+function pine(c,x,y,h,col){c.fillStyle=col;for(let i=0;i<3;i++){const t=y-h*i*.28,w=h*(.38-i*.09);c.beginPath();c.moveTo(x,t-h*.45);c.lineTo(x-w,t);c.lineTo(x+w,t);c.fill()}rect(c,x-1.5,y,3,h*.12,col)}
+
+function drawGoldfish(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,N,[[0,'#86d8e8'],[.6,'#2b8fb2'],[1,'#0f4a68']]));
+  for(let i=0;i<6;i++){const x=R()*N;poly(c,[[x,0],[x+18+R()*20,0],[x-40+R()*20,N],[x-75,N]],'rgba(255,255,255,'+(0.04+R()*.07)+')')}
+  rect(c,0,214,N,42,G(c,0,214,0,N,[[0,'#dcc690'],[1,'#a2885a']]));
+  for(let i=0;i<70;i++)circ(c,R()*N,218+R()*38,1.5+R()*4,['#8a7a66','#c9b48a','#6d6258','#e4d5b0'][R()*4|0]);
+  c.lineCap='round';for(let p=0;p<10;p++){const x=8+R()*240,h=60+R()*100;c.strokeStyle=R()<.5?'#2f8a4a':'#56b866';c.lineWidth=3+R()*3;c.beginPath();c.moveTo(x,232);for(let y=0;y<h;y+=8)c.lineTo(x+Math.sin(y*.08+p)*9,232-y);c.stroke()}
+  c.fillStyle='#ffad48';c.beginPath();c.moveTo(168,115);c.quadraticCurveTo(200,80,226,74);c.quadraticCurveTo(206,115,226,158);c.quadraticCurveTo(200,150,168,115);c.fill();
+  c.strokeStyle='rgba(255,230,180,.6)';c.lineWidth=1;for(let i=0;i<7;i++){c.beginPath();c.moveTo(172,115);c.lineTo(222,80+i*12);c.stroke()}
+  poly(c,[[100,92],[128,70],[152,94]],'#ff983a');
+  ell(c,128,115,48,28,0,'#f4761c');ell(c,122,126,34,11,0,'rgba(255,214,130,.6)');
+  c.strokeStyle='rgba(150,55,10,.35)';c.lineWidth=1;for(let x=104;x<165;x+=8)for(let y=100;y<132;y+=7){c.beginPath();c.arc(x+(y%14?4:0),y,4,.3,2.8);c.stroke()}
+  ell(c,116,134,12,6,.6,'#ffb04a');circ(c,93,108,6.5,'#fff');circ(c,92,108,3.8,'#111');circ(c,91,107,1.2,'#fff');
+  c.strokeStyle='rgba(255,255,255,.75)';c.lineWidth=1.2;for(let i=0;i<16;i++){const r=1.5+R()*4;c.beginPath();c.arc(70+R()*30-i*2,100-i*9+R()*6,r,0,7);c.stroke()}
+}
+function drawLadybug(c,R){
+  rect(c,0,0,N,N,G(c,0,0,N,N,[[0,'#b5dd8a'],[1,'#386f34']]));
+  for(let i=0;i<26;i++)circ(c,R()*N,R()*N,10+R()*28,'rgba(255,255,210,'+(0.05+R()*.12)+')');
+  c.save();c.translate(128,145);c.rotate(-.42);ell(c,0,0,124,58,0,'#4caf50');ell(c,-10,-12,110,34,0,'rgba(170,230,120,.35)');
+  c.strokeStyle='#2e7d32';c.lineWidth=2.5;c.beginPath();c.moveTo(-120,0);c.lineTo(120,0);c.stroke();c.lineWidth=1.3;
+  for(let x=-90;x<110;x+=24){c.beginPath();c.moveTo(x,0);c.quadraticCurveTo(x+14,-22,x+30,-46);c.moveTo(x,0);c.quadraticCurveTo(x+14,22,x+30,46);c.stroke()}c.restore();
+  for(let i=0;i<5;i++){const x=40+R()*180,y=120+R()*70,r=3+R()*4;circ(c,x,y,r,'rgba(220,255,240,.55)');circ(c,x-r*.3,y-r*.3,r*.35,'rgba(255,255,255,.9)')}
+  c.save();c.translate(132,128);c.rotate(-.42);c.strokeStyle='#111';c.lineWidth=2.5;
+  [[-20,-30,-30,-44],[0,-32,0,-48],[20,-30,30,-44],[-20,30,-30,44],[0,32,0,48],[20,30,30,44]].forEach(l=>{c.beginPath();c.moveTo(l[0],l[1]);c.lineTo(l[2],l[3]);c.stroke()});
+  ell(c,-42,0,17,15,0,'#151515');circ(c,-48,-7,3,'#fff');circ(c,-48,7,3,'#fff');
+  ell(c,0,0,40,33,0,'#d62828');ell(c,-8,-12,20,9,-.2,'rgba(255,255,255,.28)');
+  c.strokeStyle='#111';c.lineWidth=2.5;c.beginPath();c.moveTo(-30,0);c.lineTo(40,0);c.stroke();
+  [[-12,-16,7],[14,-18,6],[24,-6,4],[-12,16,7],[14,18,6],[24,6,4],[2,-4,4],[2,4,4]].forEach(d=>circ(c,d[0],d[1],d[2],'#141414'));c.restore();
+}
+function drawMonarch(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,N,[[0,'#ece6f6'],[.6,'#cfdcc0'],[1,'#7fa66a']]));
+  for(let i=0;i<20;i++)circ(c,R()*N,R()*160,8+R()*22,'rgba(200,170,240,'+(0.08+R()*.12)+')');
+  for(let f=0;f<9;f++){const x=10+f*30+R()*12,y=196+R()*30;c.strokeStyle='#4e7d3a';c.lineWidth=2;c.beginPath();c.moveTo(x,N);c.lineTo(x+(R()-.5)*10,y);c.stroke();
+    for(let i=0;i<26;i++)circ(c,x+(R()-.5)*22,y-R()*26,2+R()*2.5,['#8a4fc8','#a96be0','#6d36a8','#c391f0'][R()*4|0])}
+  const wing=(x,y,rx,ry,rot)=>{ell(c,x,y,rx+5,ry+5,rot,'#111');ell(c,x,y,rx,ry,rot,'#f28a24');ell(c,x,y,rx*.55,ry*.5,rot,'rgba(255,190,90,.5)');
+    c.save();c.translate(x,y);c.rotate(rot);for(let a=0;a<6.28;a+=.45)circ(c,Math.cos(a)*(rx+1),Math.sin(a)*(ry+1),1.6,'#fff');c.restore()};
+  wing(84,90,44,30,.45);wing(172,90,44,30,-.45);wing(98,138,32,24,-.6);wing(158,138,32,24,.6);
+  c.strokeStyle='#111';c.lineWidth=1.8;[[80,70],[60,92],[70,112],[96,150],[78,138],[176,70],[196,92],[186,112],[160,150],[178,138]].forEach(p=>{c.beginPath();c.moveTo(128,112);c.quadraticCurveTo((128+p[0])/2,(112+p[1])/2-6,p[0],p[1]);c.stroke()});
+  ell(c,128,114,5.5,32,0,'#151515');circ(c,128,80,6,'#151515');
+  c.lineWidth=1.5;c.beginPath();c.moveTo(126,76);c.quadraticCurveTo(116,56,108,48);c.moveTo(130,76);c.quadraticCurveTo(140,56,148,48);c.stroke();circ(c,108,48,2.5,'#111');circ(c,148,48,2.5,'#111');
+}
+function drawPumpkin(c,R){
+  rect(c,0,0,N,N,RG(c,128,130,10,200,[[0,'#4a250c'],[1,'#080402']]));
+  rect(c,0,196,N,60,'#5a391d');c.strokeStyle='rgba(30,15,5,.6)';c.lineWidth=1;for(let y=204;y<N;y+=14){c.beginPath();c.moveTo(0,y);c.lineTo(N,y);c.stroke()}
+  for(let i=0;i<60;i++)rect(c,R()*N,198+R()*58,10+R()*30,1,'rgba(120,80,40,.35)');
+  rect(c,0,180,N,76,RG(c,128,205,5,130,[[0,'rgba(255,190,70,.45)'],[1,'rgba(255,150,40,0)']]));
+  [-54,54,-30,30,0].forEach((dx,i)=>{ell(c,128+dx,140,i<2?30:36,52,0,i%2?'#e2701a':'#f0862a');c.strokeStyle='#a44c0c';c.lineWidth=2;c.beginPath();c.ellipse(128+dx,140,i<2?30:36,52,0,0,7);c.stroke()});
+  ell(c,110,112,24,10,-.3,'rgba(255,220,150,.25)');
+  poly(c,[[122,92],[126,70],[138,64],[134,92]],'#5c6b2a');
+  const glow='#ffd24a';poly(c,[[92,120],[112,100],[116,126]],glow);poly(c,[[164,120],[144,100],[140,126]],glow);poly(c,[[128,128],[121,142],[135,142]],glow);
+  poly(c,[[86,152],[100,158],[106,150],[116,160],[128,152],[140,160],[150,150],[156,158],[170,152],[160,174],[146,168],[136,178],[124,170],[112,178],[100,168],[94,174]],glow);
+  rect(c,80,96,96,90,RG(c,128,140,2,50,[[0,'rgba(255,240,170,.25)'],[1,'rgba(255,200,80,0)']]));
+}
+function drawSchooner(c,R){
+  rect(c,0,0,N,160,G(c,0,0,0,160,[[0,'#4f78b6'],[.55,'#f2ae6a'],[1,'#ffe0a3']]));
+  for(let i=0;i<6;i++)ell(c,R()*N,40+R()*70,30+R()*40,3+R()*3,0,'rgba(255,210,170,.3)');
+  rect(c,20,100,110,70,RG(c,70,150,4,60,[[0,'rgba(255,240,190,.9)'],[1,'rgba(255,200,120,0)']]));circ(c,70,150,17,'#fff1c4');
+  rect(c,0,160,N,96,G(c,0,160,0,N,[[0,'#3f6890'],[1,'#13304c']]));
+  for(let i=0;i<240;i++){const y=162+R()*94,x=70+(R()-.5)*(y-150)*1.8;rect(c,x,y,3+R()*14,1+R(),'rgba(255,'+(180+R()*60|0)+',120,'+(0.15+R()*.45)*(1-(y-160)/120)+')')}
+  for(let i=0;i<200;i++)rect(c,R()*N,165+R()*91,4+R()*12,1,'rgba(200,220,255,'+(R()*.2)+')');
+  ell(c,140,214,70,6,0,'rgba(10,20,40,.4)');
+  poly(c,[[64,192],[214,190],[198,212],[82,212]],'#3a2414');rect(c,72,196,136,3,'#c49a4a');
+  c.strokeStyle='#2b1a0e';c.lineWidth=2.5;[[110,192,110,62],[156,192,156,54]].forEach(l=>{c.beginPath();c.moveTo(l[0],l[1]);c.lineTo(l[2],l[3]);c.stroke()});
+  c.lineWidth=1;c.beginPath();c.moveTo(156,54);c.lineTo(222,186);c.moveTo(110,62);c.lineTo(66,190);c.stroke();
+  poly(c,[[112,70],[112,184],[150,180],[146,78]],'#f3e6c8');poly(c,[[158,62],[158,182],[196,178],[188,74]],'#f6ead0');poly(c,[[160,60],[218,182],[166,180]],'#efdcb6');
+  poly(c,[[86,100],[108,74],[108,180],[80,184]],'#ead8b4');
+  rect(c,112,70,34,110,'rgba(255,170,90,.18)');poly(c,[[110,56],[122,59],[110,62]],'#b8322f');poly(c,[[156,48],[168,51],[156,54]],'#b8322f');
+  c.strokeStyle='rgba(40,30,40,.8)';c.lineWidth=1.2;for(let i=0;i<4;i++){const x=180+R()*60,y=40+R()*50,s=3+R()*3;c.beginPath();c.moveTo(x-s,y-s*.6);c.quadraticCurveTo(x,y-s*.2,x,y);c.quadraticCurveTo(x,y-s*.2,x+s,y-s*.6);c.stroke()}
+}
+function drawPizza(c,R){
+  rect(c,0,0,N,N,'#b8864f');for(let i=0;i<5;i++)rect(c,0,i*52,N,1.5,'rgba(70,40,15,.6)');
+  for(let i=0;i<140;i++){c.strokeStyle='rgba(90,55,25,'+(R()*.35)+')';c.lineWidth=1;const y=R()*N;c.beginPath();c.moveTo(0,y);for(let x=0;x<=N;x+=32)c.lineTo(x,y+Math.sin(x*.03+i)*2);c.stroke()}
+  circ(c,128,128,104,'rgba(40,20,5,.35)');circ(c,128,126,102,'#cf9550');circ(c,128,126,92,'#e3b06a');circ(c,128,126,84,'#bf3a26');
+  for(let i=0;i<70;i++){const a=R()*6.28,r=R()*76;ell(c,128+Math.cos(a)*r,126+Math.sin(a)*r,6+R()*10,4+R()*7,R()*3,'rgba(248,'+(210+R()*30|0)+',110,.85)')}
+  for(let i=0;i<13;i++){const a=R()*6.28,r=14+R()*60,x=128+Math.cos(a)*r,y=126+Math.sin(a)*r;circ(c,x,y,11,'#9e2618');circ(c,x,y,9,'#b8301e');for(let j=0;j<4;j++)circ(c,x+(R()-.5)*12,y+(R()-.5)*12,1.4,'#6e160c')}
+  for(let i=0;i<8;i++){const a=R()*6.28,r=R()*65;ell(c,128+Math.cos(a)*r,126+Math.sin(a)*r,9,4.5,R()*3,'#2f7a2c')}
+  c.strokeStyle='rgba(90,40,15,.55)';c.lineWidth=1.5;for(let i=0;i<4;i++){const a=i*Math.PI/4+.2;c.beginPath();c.moveTo(128-Math.cos(a)*100,126-Math.sin(a)*100);c.lineTo(128+Math.cos(a)*100,126+Math.sin(a)*100);c.stroke()}
+}
+function drawAlp(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,170,[[0,'#2c79d6'],[1,'#c4e6ff']]));
+  for(let i=0;i<5;i++)ell(c,R()*N,20+R()*50,25+R()*30,6+R()*5,0,'rgba(255,255,255,.7)');
+  ridge(c,R,150,70,110,8,'#91a2bb');
+  const pk=ridge(c,R,170,55,95,6,'#5b6880');
+  pk.forEach(p=>poly(c,[[p[0],p[1]],[p[0]-22,p[1]+30],[p[0]-10,p[1]+24],[p[0]-2,p[1]+34],[p[0]+8,p[1]+22],[p[0]+22,p[1]+30]],'#f4f8ff'));
+  rect(c,0,165,N,91,G(c,0,165,0,N,[[0,'#8acb6e'],[1,'#3d8a39']]));
+  ell(c,170,200,60,10,0,'#5aaee8');ell(c,170,198,50,4,0,'rgba(255,255,255,.35)');
+  for(let i=0;i<300;i++)rect(c,R()*N,175+R()*81,1,2+R()*3,'rgba(30,90,30,'+(R()*.5)+')');
+  for(let i=0;i<14;i++){const x=R()*N,y=180+R()*70;pine(c,x,y,14+(y-170)*.35,'#1f4a2a')}
+}
+function drawCity(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,190,[[0,'#090d2a'],[1,'#3a3466']]));stars(c,R,90,120);
+  circ(c,200,40,13,'#f4f0dc');rect(c,170,10,60,60,RG(c,200,40,10,34,[[0,'rgba(255,250,220,.25)'],[1,'rgba(255,250,220,0)']]));
+  const bl=[];let x=-4;while(x<N){const w=14+R()*24,h=50+R()*120;bl.push([x,w,h]);x+=w+1}
+  bl.forEach(b=>{const top=190-b[2];rect(c,b[0],top,b[1],b[2],R()<.5?'#181d36':'#222947');
+    for(let wy=top+5;wy<186;wy+=7)for(let wx=b[0]+3;wx<b[0]+b[1]-3;wx+=5)if(R()<.32)rect(c,wx,wy,2.5,3.5,R()<.8?'#ffd97a':'#9ad0ff');
+    if(R()<.25){rect(c,b[0]+b[1]/2,top-14,1.5,14,'#3a4060');circ(c,b[0]+b[1]/2+.75,top-14,1.6,'#ff4d4d')}});
+  rect(c,0,190,N,66,G(c,0,190,0,N,[[0,'#1b2348'],[1,'#070a1c']]));
+  for(let i=0;i<500;i++){const xx=R()*N,y=192+R()*64;rect(c,xx,y,2+R()*6,1,R()<.6?'rgba(255,217,122,'+(R()*.5)*(1-(y-190)/80)+')':'rgba(154,208,255,'+(R()*.3)+')')}
+}
+function drawCherry(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,200,[[0,'#cbe6ff'],[1,'#fde4ee']]));
+  rect(c,0,200,N,56,G(c,0,200,0,N,[[0,'#a2d184'],[1,'#64a352']]));
+  const tips=[];c.lineCap='round';
+  const br=(x,y,len,a,w,d)=>{const x2=x+Math.cos(a)*len,y2=y+Math.sin(a)*len;c.strokeStyle='#5b3a2b';c.lineWidth=w;c.beginPath();c.moveTo(x,y);c.lineTo(x2,y2);c.stroke();
+    if(d===0||len<8){tips.push([x2,y2]);return}br(x2,y2,len*(.68+R()*.12),a-.35-R()*.3,w*.68,d-1);br(x2,y2,len*(.68+R()*.12),a+.3+R()*.3,w*.68,d-1);if(R()<.4)tips.push([x2,y2])};
+  br(128,230,62,-Math.PI/2,13,6);
+  tips.forEach(t=>{for(let i=0;i<14;i++)circ(c,t[0]+(R()-.5)*26,t[1]+(R()-.5)*22,2+R()*3.5,['#f7b6c8','#f49ab4','#fcd3df','#ffffff','#e981a0'][R()*5|0])});
+  for(let i=0;i<70;i++)ell(c,R()*N,120+R()*136,2,1.2,R()*3,'rgba(245,160,185,.8)');
+  ell(c,128,232,60,6,0,'rgba(60,90,40,.25)');
+}
+function drawMushroom(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,N,[[0,'#2a4a37'],[1,'#0d1f16']]));
+  for(let i=0;i<10;i++){const x=R()*N,w=8+R()*18,f=R();rect(c,x,0,w,200,'rgba('+(60+f*60|0)+','+(85+f*60|0)+','+(75+f*50|0)+','+(0.35+f*.4)+')')}
+  for(let i=0;i<4;i++){const x=40+R()*170;poly(c,[[x,0],[x+30,0],[x-10,210],[x-60,210]],'rgba(230,255,220,.06)')}
+  for(let i=0;i<8;i++)ell(c,R()*N,140+R()*60,60+R()*50,10+R()*8,0,'rgba(220,235,225,.08)');
+  rect(c,0,195,N,61,G(c,0,195,0,N,[[0,'#3f5c2a'],[1,'#1d3016']]));
+  for(let i=0;i<400;i++)rect(c,R()*N,196+R()*60,1.5,1.5,R()<.5?'rgba(120,170,70,.6)':'rgba(20,40,15,.6)');
+  [[96,206,36,46],[158,218,24,30],[196,200,15,20],[56,226,12,16],[214,234,10,12]].forEach(m=>{const [x,y,r,h]=m;
+    poly(c,[[x-r*.22,y],[x-r*.16,y-h],[x+r*.16,y-h],[x+r*.22,y]],'#efe6d2');ell(c,x,y-h,r*.55,r*.12,0,'#d8cdb3');
+    c.fillStyle='#cf231c';c.beginPath();c.ellipse(x,y-h,r,r*.75,0,Math.PI,2*Math.PI);c.fill();ell(c,x-r*.3,y-h-r*.45,r*.3,r*.12,-.3,'rgba(255,255,255,.18)');
+    for(let i=0;i<8;i++){const a=Math.PI+.25+R()*2.6,rr=R()*.8;circ(c,x+Math.cos(a)*r*rr,y-h+Math.sin(a)*r*.75*rr,r*.07+1,'#f8f2e2')}});
+}
+function drawDaisy(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,112,[[0,'#4fa2ee'],[1,'#e0f2ff']]));
+  for(let i=0;i<4;i++)ell(c,R()*N,20+R()*50,26+R()*30,7,0,'rgba(255,255,255,.75)');
+  c.fillStyle='#2f6b33';c.beginPath();c.moveTo(0,118);for(let x=0;x<=N;x+=6)c.lineTo(x,108-R()*10);c.lineTo(N,118);c.fill();
+  rect(c,0,114,N,142,G(c,0,114,0,N,[[0,'#86ca5e'],[1,'#3b8a31']]));
+  const ds=[];for(let i=0;i<150;i++)ds.push([R()*N,116+Math.pow(R(),.7)*140]);ds.sort((a,b)=>a[1]-b[1]);
+  ds.forEach(d=>{const s=1.5+(d[1]-112)/144*12;c.strokeStyle='rgba(30,90,30,.6)';c.lineWidth=1;c.beginPath();c.moveTo(d[0],d[1]);c.lineTo(d[0],d[1]+s*1.5);c.stroke();
+    for(let p=0;p<12;p++){const a=p/12*6.283;ell(c,d[0]+Math.cos(a)*s*.6,d[1]+Math.sin(a)*s*.42,s*.5,s*.16,a,'#fbfbf6')}circ(c,d[0],d[1],s*.28,'#f3c33e')});
+}
+function drawReef(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,N,[[0,'#46c6e4'],[1,'#0b4b84']]));
+  for(let i=0;i<5;i++){const x=R()*N;poly(c,[[x,0],[x+16,0],[x-30,N],[x-60,N]],'rgba(255,255,255,.06)')}
+  rect(c,0,208,N,48,G(c,0,208,0,N,[[0,'#eedcaa'],[1,'#c8b07a']]));
+  c.lineCap='round';const cor=(x,y,len,a,w,d,col)=>{const x2=x+Math.cos(a)*len,y2=y+Math.sin(a)*len;c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x,y);c.lineTo(x2,y2);c.stroke();if(d>0){cor(x2,y2,len*.75,a-.45,w*.75,d-1,col);cor(x2,y2,len*.75,a+.45,w*.75,d-1,col)}};
+  [[40,'#ff6f91'],[110,'#ff9f43'],[190,'#b46ce0'],[235,'#ff6f91']].forEach(k=>cor(k[0],215,30,-Math.PI/2+(R()-.5)*.4,7,4,k[1]));
+  [[75,212,22,'#e0b24a'],[155,214,26,'#8fd16e'],[215,218,16,'#f28c6b']].forEach(b=>{c.fillStyle=b[3];c.beginPath();c.ellipse(b[0],b[1],b[2],b[2]*.7,0,Math.PI,2*Math.PI);c.fill();c.strokeStyle='rgba(0,0,0,.2)';c.lineWidth=1;for(let r=4;r<b[2];r+=4){c.beginPath();c.ellipse(b[0],b[1],r,r*.7,0,Math.PI,2*Math.PI);c.stroke()}});
+  for(let i=0;i<16;i++){const x=R()*N,y=40+R()*140,s=5+R()*7,dir=R()<.5?1:-1,col=['#ffd23f','#3a86ff','#ff7b00','#ffffff','#06d6a0'][R()*5|0];
+    poly(c,[[x-dir*s*.8,y],[x-dir*s*1.6,y-s*.6],[x-dir*s*1.6,y+s*.6]],col);ell(c,x,y,s,s*.55,0,col);if(col==='#ff7b00'){rect(c,x-1,y-s*.5,2,s,'#fff')}circ(c,x+dir*s*.55,y-s*.12,1,'#111')}
+  for(let i=0;i<20;i++){c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1;c.beginPath();c.arc(R()*N,R()*180,1+R()*2.5,0,7);c.stroke()}
+}
+function drawStrawberry(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,N,[[0,'#ffe6ec'],[1,'#f3bfcd']]));
+  ell(c,132,172,116,62,0,'rgba(140,60,80,.18)');ell(c,128,164,114,60,0,'#ffffff');ell(c,128,164,86,42,0,'#f1f0f4');
+  for(let i=0;i<22;i++)circ(c,160+(R()-.5)*44,150+(R()-.5)*26,8+R()*9,R()<.5?'#fffdf8':'#f2ede6');
+  const berry=(x,y,s,rot)=>{c.save();c.translate(x,y);c.rotate(rot);c.fillStyle=G(c,-s,-s,s,s,[[0,'#ff4b4b'],[1,'#a3121f']]);
+    c.beginPath();c.moveTo(0,-s*.55);c.bezierCurveTo(s*.95,-s*.75,s*.9,s*.3,0,s);c.bezierCurveTo(-s*.9,s*.3,-s*.95,-s*.75,0,-s*.55);c.fill();
+    for(let i=0;i<18;i++){const u=(R()-.5)*1.3*s,v=-s*.4+R()*1.25*s;if(Math.abs(u)<s*(0.85-(v/s)*.5))ell(c,u,v,1.3,2,0,'#f6d26a')}
+    for(let i=0;i<6;i++){const a=-Math.PI/2+(i-2.5)*.45;ell(c,Math.cos(a)*s*.32,-s*.6+Math.sin(a)*s*.12,s*.3,s*.09,a,'#3c9a3a')}c.restore()};
+  berry(88,150,30,-.4);berry(122,178,27,.3);berry(176,182,26,-.2);berry(70,190,22,.6);berry(140,128,24,.15);
+  for(let i=0;i<12;i++)circ(c,R()*N,R()*90,2+R()*3,'rgba(255,255,255,.5)');
+}
+function drawTorii(c,R){
+  rect(c,0,0,N,152,G(c,0,0,0,152,[[0,'#3c4180'],[.55,'#ee8ba0'],[1,'#ffd7a1']]));
+  rect(c,140,100,120,80,RG(c,196,146,4,60,[[0,'rgba(255,245,210,.9)'],[1,'rgba(255,200,150,0)']]));circ(c,196,146,15,'#fff3d6');
+  ridge(c,R,152,118,135,7,'rgba(110,90,140,.8)');
+  rect(c,0,150,N,106,G(c,0,150,0,N,[[0,'#eba7a0'],[1,'#3a4a85']]));
+  for(let i=0;i<220;i++){const y=152+R()*104,x=196+(R()-.5)*(y-140)*1.2;rect(c,x,y,3+R()*12,1,'rgba(255,230,190,'+(0.15+R()*.5)*(1-(y-150)/120)+')')}
+  const gate=(flip)=>{const Y=y=>flip?300-y:y;const red='#d4302a';
+    poly(c,[[90,Y(68)],[98,Y(68)],[100,Y(196)],[90,Y(196)]],red);poly(c,[[150,Y(68)],[158,Y(68)],[158,Y(196)],[148,Y(196)]],red);
+    poly(c,[[78,Y(86)],[170,Y(86)],[170,Y(93)],[78,Y(93)]],red);
+    c.fillStyle='#2a1a1e';c.beginPath();c.moveTo(62,Y(62));c.quadraticCurveTo(124,Y(72),186,Y(62));c.lineTo(182,Y(70));c.quadraticCurveTo(124,Y(78),66,Y(70));c.fill();
+    poly(c,[[70,Y(70)],[178,Y(70)],[176,Y(77)],[72,Y(77)]],red);rect(c,119,flip?300-86:77,10,9,'#2a1a1e')};
+  c.globalAlpha=.35;gate(true);c.globalAlpha=1;
+  for(let i=0;i<120;i++)rect(c,60+R()*136,196+R()*60,6+R()*16,1,'rgba(255,220,210,.25)');
+  gate(false);
+}
+function drawAurora(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,200,[[0,'#030614'],[1,'#0c2539']]));stars(c,R,240,190);
+  [[95,40,.018,1,'80,255,170'],[70,28,.024,3,'90,240,200'],[120,22,.03,5,'170,110,255']].forEach(b=>{const [base,amp,f,ph,col]=b;
+    for(let x=0;x<N;x++){const y=base+Math.sin(x*f+ph)*amp+Math.sin(x*f*2.7+ph)*amp*.3,h=40+Math.sin(x*.05+ph)*18;
+      for(let j=0;j<8;j++)rect(c,x,y-h*j/8,1,h/8+1,'rgba('+col+','+(0.11*(1-j/8))+')')}});
+  c.fillStyle=G(c,0,195,0,N,[[0,'#d6e6f7'],[1,'#7f9cc2']]);c.beginPath();c.moveTo(0,N);c.lineTo(0,205);for(let x=0;x<=N;x+=8)c.lineTo(x,200+Math.sin(x*.02)*6);c.lineTo(N,N);c.fill();
+  for(let i=0;i<26;i++){const x=R()*N;pine(c,x,204+Math.sin(x*.02)*6,22+R()*30,'#07111b')}
+  for(let i=0;i<200;i++)rect(c,R()*N,212+R()*44,1,1,'rgba(255,255,255,.6)');
+}
+function drawPlanet(c,R){
+  rect(c,0,0,N,N,'#04040d');
+  for(let i=0;i<30;i++)circ(c,R()*N,R()*N,20+R()*50,R()<.5?'rgba(120,60,200,.05)':'rgba(40,110,220,.05)');stars(c,R,320,N);
+  c.save();c.translate(128,132);c.rotate(-.35);c.lineWidth=10;c.strokeStyle='rgba(220,196,150,.8)';c.beginPath();c.ellipse(0,0,112,28,0,Math.PI,2*Math.PI);c.stroke();
+  c.lineWidth=3;c.strokeStyle='rgba(180,150,110,.7)';c.beginPath();c.ellipse(0,0,96,23,0,Math.PI,2*Math.PI);c.stroke();c.restore();
+  c.save();c.beginPath();c.arc(128,132,62,0,7);c.clip();const cols=['#e8c99a','#c99a66','#f0dcb4','#b07c4c','#e3b989','#d4a774','#f3e2c2'];
+  for(let y=66;y<200;y+=6)rect(c,60,y+Math.sin(y)*1.5,140,7,cols[(y/6|0)%cols.length]);ell(c,150,150,14,7,0,'#b5603a');
+  rect(c,60,66,140,140,RG(c,100,105,10,95,[[0,'rgba(255,255,255,.18)'],[.6,'rgba(0,0,0,0)'],[1,'rgba(0,0,20,.75)']]));c.restore();
+  c.save();c.translate(128,132);c.rotate(-.35);c.lineWidth=10;c.strokeStyle='rgba(225,200,155,.9)';c.beginPath();c.ellipse(0,0,112,28,0,0,Math.PI);c.stroke();
+  c.lineWidth=3;c.strokeStyle='rgba(180,150,110,.8)';c.beginPath();c.ellipse(0,0,96,23,0,0,Math.PI);c.stroke();c.restore();
+  circ(c,214,52,9,'#9a9aa6');circ(c,218,49,8,'rgba(4,4,13,.7)');
+}
+function drawDunes(c,R){
+  rect(c,0,0,N,N,G(c,0,0,0,150,[[0,'#6db8f0'],[1,'#f9e6c2']]));
+  rect(c,150,10,100,90,RG(c,200,45,4,50,[[0,'rgba(255,255,240,1)'],[.3,'rgba(255,250,220,.6)'],[1,'rgba(255,240,200,0)']]));
+  [[132,'#e9c38a','#c99a5c'],[160,'#e6b676','#b98444'],[196,'#efc184','#c08a48'],[232,'#f2c98e','#c79453']].forEach((d,i)=>{const [base,light,dark]=d;
+    c.fillStyle=G(c,0,0,N,0,[[0,dark],[.45+R()*.2,light],[1,dark]]);c.beginPath();c.moveTo(0,N);
+    for(let x=0;x<=N;x+=4)c.lineTo(x,base-Math.abs(Math.sin(x*(.012+i*.004)+i*2))*(26-i*3));c.lineTo(N,N);c.fill();
+    c.strokeStyle='rgba(150,100,50,.25)';c.lineWidth=1;for(let k=0;k<6;k++){const y=base+6+k*5+R()*3;c.beginPath();for(let x=0;x<=N;x+=8)c.lineTo(x,y+Math.sin(x*.08+k)*1.5);c.stroke()}});
+  [[60,150],[70,149],[80,150]].forEach(p=>{ell(c,p[0],p[1],4,2.2,0,'#5a3b1e');rect(c,p[0]-3,p[1],1,4,'#5a3b1e');rect(c,p[0]+2,p[1],1,4,'#5a3b1e');rect(c,p[0]+3,p[1]-4,1.3,3,'#5a3b1e')});
+}
+function drawLakeside(c,R){
+  rect(c,0,0,N,150,G(c,0,0,0,150,[[0,'#151a48'],[.6,'#6e4f9e'],[1,'#e2a0b0']]));stars(c,R,120,90);
+  rect(c,140,10,80,80,RG(c,180,48,8,40,[[0,'rgba(255,248,220,.35)'],[1,'rgba(255,248,220,0)']]));circ(c,180,48,14,'#fff6d8');
+  ridge(c,R,150,80,115,7,'#3a356a');ridge(c,R,150,110,130,9,'#231f48');
+  rect(c,0,150,N,106,G(c,0,150,0,N,[[0,'#4a3f80'],[1,'#121230']]));
+  for(let i=0;i<200;i++){const y=152+R()*104,x=180+(R()-.5)*30;rect(c,x-5,y,6+R()*12,1,'rgba(255,245,210,'+(0.2+R()*.5)*(1-(y-150)/110)+')')}
+  rect(c,0,146,N,7,'#0d0c1f');for(let i=0;i<30;i++){const x=R()*N;pine(c,x,150,12+R()*20,'#0b0a1c')}
+  rect(c,58,132,30,18,'#3b2a26');poly(c,[[54,133],[73,118],[92,133]],'#241816');rect(c,64,138,7,6,'#ffcc66');rect(c,76,138,7,6,'#ffcc66');
+  rect(c,30,110,90,60,RG(c,73,141,2,30,[[0,'rgba(255,200,100,.35)'],[1,'rgba(255,200,100,0)']]));
+  for(let i=0;i<40;i++)rect(c,62+R()*24,154+R()*30,3+R()*6,1,'rgba(255,200,100,'+(R()*.5)+')');
+}
+const SCENES={lighthouse:drawLighthouse,volcano:drawVolcano,balloon:drawBalloon,goldfish:drawGoldfish,ladybug:drawLadybug,monarch:drawMonarch,pumpkin:drawPumpkin,
+  schooner:drawSchooner,pizza:drawPizza,alp:drawAlp,city:drawCity,cherry:drawCherry,mushroom:drawMushroom,daisy:drawDaisy,reef:drawReef,strawberry:drawStrawberry,
+  torii:drawTorii,aurora:drawAurora,planet:drawPlanet,dunes:drawDunes,lakeside:drawLakeside};
+
+const sceneCache={};
+function getScene(name){
+  if(sceneCache[name])return sceneCache[name];
+  const cv=document.createElement('canvas');cv.width=cv.height=N;const c=cv.getContext('2d');let hsh=13;for(const ch of name)hsh=Math.imul(hsh,31)+ch.charCodeAt(0)|0;const R=rng(hsh);
+  SCENES[name](c,R);
+  const d=c.getImageData(0,0,N,N).data;const T=new Float32Array(N*N*3);const R2=rng(99);
+  for(let i=0;i<N*N;i++){const n=(R2()-.5)*0.03;for(let ch=0;ch<3;ch++)T[i*3+ch]=Math.min(1,Math.max(0,d[i*4+ch]/255+n))}
+  return sceneCache[name]=T;
+}
+
+/* ---------- resampling ---------- */
+function areaDown(src,sw,sh,dw,dh){
+  const out=new Float32Array(dw*dh*3);
+  for(let dy=0;dy<dh;dy++){const y0=dy*sh/dh,y1=(dy+1)*sh/dh;
+    for(let dx=0;dx<dw;dx++){const x0=dx*sw/dw,x1=(dx+1)*sw/dw;let a=0,b=0,cc=0,ws=0;
+      for(let sy=Math.floor(y0);sy<Math.ceil(y1);sy++){const wy=Math.min(y1,sy+1)-Math.max(y0,sy);if(wy<=0)continue;
+        for(let sx=Math.floor(x0);sx<Math.ceil(x1);sx++){const wx=Math.min(x1,sx+1)-Math.max(x0,sx);if(wx<=0)continue;const w=wx*wy,i=(sy*sw+sx)*3;a+=src[i]*w;b+=src[i+1]*w;cc+=src[i+2]*w;ws+=w}}
+      const o=(dy*dw+dx)*3;out[o]=a/ws;out[o+1]=b/ws;out[o+2]=cc/ws}}
+  return out;
+}
+function bilinear(src,sw,sh,dw,dh){
+  const out=new Float32Array(dw*dh*3);
+  for(let dy=0;dy<dh;dy++){let fy=(dy+.5)*sh/dh-.5;fy=Math.max(0,Math.min(sh-1,fy));const y0=Math.floor(fy),y1=Math.min(sh-1,y0+1),ty=fy-y0;
+    for(let dx=0;dx<dw;dx++){let fx=(dx+.5)*sw/dw-.5;fx=Math.max(0,Math.min(sw-1,fx));const x0=Math.floor(fx),x1=Math.min(sw-1,x0+1),tx=fx-x0;
+      const o=(dy*dw+dx)*3,a=(y0*sw+x0)*3,b=(y0*sw+x1)*3,c2=(y1*sw+x0)*3,d=(y1*sw+x1)*3;
+      for(let ch=0;ch<3;ch++)out[o+ch]=(src[a+ch]*(1-tx)+src[b+ch]*tx)*(1-ty)+(src[c2+ch]*(1-tx)+src[d+ch]*tx)*ty}}
+  return out;
+}
+
+/* ---------- quantizers ---------- */
+function nearestLevel(x){let bi=0,bd=1e9;for(let i=0;i<16;i++){const d=Math.abs(x-LEVELS[i]);if(d<bd){bd=d;bi=i}}return bi}
+function quantVQ(rs,s){
+  const n=s*s,vals=new Float32Array(n*3),ids=new Uint16Array(n);
+  for(let p=0;p<n;p++){let id=0;for(let ch=0;ch<3;ch++){const li=nearestLevel(rs[p*3+ch]);vals[p*3+ch]=LEVELS[li];id=id*16+li}ids[p]=id}
+  return {vals,ids};
+}
+function quantBits(rs,s){
+  const n=s*s;let m=1e-4;for(let i=0;i<n*3;i++)m=Math.max(m,Math.abs(rs[i]));
+  const bits=new Uint8Array(n*DBITS),ids=new Uint16Array(n);
+  for(let p=0;p<n;p++){let id=0;for(let ch=0;ch<3;ch++){const x=rs[p*3+ch];let v=0,step=m/2;
+      for(let j=0;j<BITS_PER_CH;j++){const b=x>=v?1:0;bits[p*DBITS+ch*BITS_PER_CH+j]=b;v+=b?step:-step;step/=2;id=id*2+b}}ids[p]=id}
+  return {bits,ids,m,vals:dequantBits(bits,n,m)};
+}
+function dequantBits(bits,n,m){
+  const vals=new Float32Array(n*3);
+  for(let p=0;p<n;p++)for(let ch=0;ch<3;ch++){let v=0,step=m/2;for(let j=0;j<BITS_PER_CH;j++){v+=bits[p*DBITS+ch*BITS_PER_CH+j]?step:-step;step/=2}vals[p*3+ch]=v}
+  return vals;
+}
+
+/* ---------- tokenization of a scene for a model ---------- */
+const dataCache={};
+function tokenize(model,scene){
+  const key=model+'|'+scene;if(dataCache[key])return dataCache[key];
+  const M=MODELS[model],S=M.scales,K=S.length,L=S[K-1];
+  const T=getScene(scene),lat=areaDown(T,N,N,L,L),upLat=bilinear(lat,L,L,N,N);
+  const HF=new Float32Array(N*N*3);for(let i=0;i<HF.length;i++)HF[i]=T[i]-upLat[i];
+  let acc=new Float32Array(L*L*3);const steps=[];
+  for(let k=0;k<K;k++){const s=S[k];
+    const resid=new Float32Array(L*L*3);for(let i=0;i<resid.length;i++)resid[i]=lat[i]-acc[i];
+    const rs=areaDown(resid,L,L,s,s);
+    const input=k===0?null:areaDown(acc,L,L,s,s);
+    const q=M.quant==='vq'?quantVQ(rs,s):quantBits(rs,s);
+    const upq=bilinear(q.vals,s,s,L,L);
+    const nacc=new Float32Array(acc.length);for(let i=0;i<acc.length;i++)nacc[i]=acc[i]+upq[i];
+    let e=0;for(let i=0;i<resid.length;i++)e+=resid[i]*resid[i];
+    steps.push({s,resid,rs,input,q,upq,acc:nacc,energy:e/resid.length});acc=nacc}
+  return dataCache[key]={model,scene,S,K,L,T,lat,HF,steps,decoded:[]};
+}
+function decodeAcc(D,acc,w){
+  const up=bilinear(acc,D.L,D.L,N,N);const img=new ImageData(N,N);let se=0;
+  for(let i=0;i<N*N;i++)for(let ch=0;ch<3;ch++){let v=up[i*3+ch]+D.HF[i*3+ch]*w;v=Math.min(1,Math.max(0,v));img.data[i*4+ch]=v*255;const e=v-D.T[i*3+ch];se+=e*e}
+  for(let i=0;i<N*N;i++)img.data[i*4+3]=255;
+  return {img,psnr:10*Math.log10(1/(se/(N*N*3)))};
+}
+function decoded(D,k){
+  if(D.decoded[k])return D.decoded[k];
+  const w=Math.pow(D.S[k]/D.L,2);
+  return D.decoded[k]=decodeAcc(D,D.steps[k].acc,w).img;
+}
+
+/* ---------- drawing helpers ---------- */
+function hashColor(id){const h=(id*137.508)%360;const l=48+((id*7919)%5)*6;return 'hsl('+h.toFixed(1)+',62%,'+l+'%)'}
+function sgn2rgb(v,gain){return Math.max(0,Math.min(255,(0.5+v*gain)*255))|0}
+function drawField(cv,arr,w,h,gain,opts){
+  opts=opts||{};const c=cv.getContext('2d');const W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const cw=W/w,ch=H/h;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*3;
+    const col=gain==null?'rgb('+(Math.min(1,Math.max(0,arr[i]))*255|0)+','+(Math.min(1,Math.max(0,arr[i+1]))*255|0)+','+(Math.min(1,Math.max(0,arr[i+2]))*255|0)+')'
+      :'rgb('+sgn2rgb(arr[i],gain)+','+sgn2rgb(arr[i+1],gain)+','+sgn2rgb(arr[i+2],gain)+')';
+    c.fillStyle=col;c.fillRect(Math.floor(x*cw),Math.floor(y*ch),Math.ceil(cw),Math.ceil(ch))}
+  if(opts.grid&&w<=24){c.strokeStyle=opts.gridColor||'rgba(0,0,0,.25)';c.lineWidth=1;c.beginPath();for(let i=1;i<w;i++){const x=Math.round(i*cw)+.5;c.moveTo(x,0);c.lineTo(x,H)}for(let i=1;i<h;i++){const y=Math.round(i*ch)+.5;c.moveTo(0,y);c.lineTo(W,y)}c.stroke()}
+}
+function autoGain(arr){let m=1e-6;for(let i=0;i<arr.length;i++)m=Math.max(m,Math.abs(arr[i]));return 0.5/m}
+
+/* ---------- condition card ---------- */
+function embedBars(seed,n){const R=rng(seed);let s='<svg viewBox="0 0 '+(n*5)+' 34" style="width:100%;height:34px" aria-hidden="true">';for(let i=0;i<n;i++){const v=(R()-.5)*2;const h=Math.abs(v)*15+1;s+='<rect x="'+(i*5)+'" y="'+(v>0?17-h:17)+'" width="3.5" height="'+h.toFixed(1)+'" fill="var(--m)" opacity="'+(0.45+Math.abs(v)*0.55).toFixed(2)+'"/>'}return s+'</svg>'}
+function renderCond(){
+  const M=MODELS[state.model],P=M.prompts[state.prompt];$('#condTitle').textContent=M.condTitle;let h='';
+  if(state.model==='var'){const [num,name]=P.label.split(' · ');
+    h='<div><span class="chip">class '+num+'</span> <span style="font-size:14px">'+name+'</span></div><div class="down">▼ embedding lookup</div>'+
+      '<div class="blk">Class embedding<small>one 1920-d vector (width of VAR-d30)</small>'+embedBars(+num,40)+'</div>'+
+      '<div class="down">▼ used twice</div><div class="blk">Start token [s]<small>predicts the 1×1 map r₁</small></div><div class="blk">AdaLN in every block<small>scale &amp; shift of each layer norm</small></div>';
+  }else if(state.model==='switti'){
+    h='<p class="quote">“'+P.label+'”</p><div class="down">▼ two frozen text encoders</div>'+
+      '<div class="row" style="gap:6px"><div class="blk" style="flex:1">CLIP ViT-L</div><div class="blk" style="flex:1">OpenCLIP ViT-bigG</div></div>'+
+      '<div class="down">▼ concatenated along channels</div><div class="blk">Text tokens → cross-attention<small>in every block, between self-attn and FFN</small>'+embedBars(P.label.length*31,40)+'</div>'+
+      '<div class="blk">Pooled bigG + crop coords → AdaLN</div>';
+  }else{
+    h='<p class="quote">“'+P.label+'”</p><div class="down">▼ frozen text encoder</div><div class="blk">Flan-T5 encoder</div>'+
+      '<div class="down">▼ one vector per text token</div><div class="blk">Text tokens → cross-attention<small>in every transformer block</small>'+embedBars(P.label.length*17,40)+'</div>';
+  }
+  $('#condBody').innerHTML=h;
+}
+
+/* ---------- attention mask ---------- */
+function drawMask(cv,model,kCur,big){
+  const M=MODELS[model],S=M.scales,K=S.length,c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const text=model!=='var';const pad=big?44:0,textW=text?(big?60:22):0;const D=Math.min(W-pad-textW-(text?8:0),H-pad);
+  const tot=S.reduce((a,b)=>a+b,0),sc=D/tot;const pos=[];let acc=0;S.forEach(s=>{pos.push(acc*sc);acc+=s});
+  const mcol=css('--m'),soft=css('--soft'),line=css('--line'),muted=css('--muted');
+  c.fillStyle=soft;c.fillRect(pad,pad,D,D);
+  for(let i=0;i<K;i++)for(let j=0;j<K;j++){const allowed=M.attn==='causal'?j<=i:j===i;if(!allowed)continue;
+    c.globalAlpha=i>kCur?0.12:(i===kCur?1:0.45);c.fillStyle=mcol;c.fillRect(pad+pos[j],pad+pos[i],S[j]*sc,S[i]*sc)}
+  c.globalAlpha=1;
+  if(text){const tx=pad+D+8;for(let i=0;i<K;i++){c.globalAlpha=i>kCur?0.12:(i===kCur?1:0.45);c.fillStyle=mcol;c.fillRect(tx,pad+pos[i],textW,S[i]*sc)}c.globalAlpha=1;
+    c.strokeStyle=line;c.strokeRect(tx+.5,pad+.5,textW-1,D-1);
+    if(big){c.fillStyle=muted;c.font='500 20px IBM Plex Sans, sans-serif';c.textAlign='center';c.fillText('text',tx+textW/2,pad-12)}}
+  c.strokeStyle=line;c.lineWidth=1;c.beginPath();pos.forEach(p=>{c.moveTo(pad+p+.5,pad);c.lineTo(pad+p+.5,pad+D);c.moveTo(pad,pad+p+.5);c.lineTo(pad+D,pad+p+.5)});c.stroke();c.strokeRect(pad+.5,pad+.5,D-1,D-1);
+  c.strokeStyle=css('--ink');c.lineWidth=big?3:2;c.strokeRect(pad+1,pad+pos[kCur]+1,D-2,S[kCur]*sc-2);
+  if(big){c.fillStyle=muted;c.font='18px IBM Plex Mono, monospace';c.textAlign='center';c.textBaseline='middle';
+    for(let i=0;i<K;i++){const sz=S[i]*sc;if(sz<22)continue;c.fillText(S[i]+'²',pad+pos[i]+sz/2,pad-16);c.save();c.translate(pad-18,pad+pos[i]+sz/2);c.rotate(-Math.PI/2);c.fillText(S[i]+'²',0,0);c.restore()}
+    c.textBaseline='alphabetic'}
+}
+
+/* ---------- main render ---------- */
+function curData(){const M=MODELS[state.model];return tokenize(state.model,M.prompts[state.prompt].scene)}
+function selIndex(s){const x=Math.min(s-1,Math.floor(state.selU*s)),y=Math.min(s-1,Math.floor(state.selV*s));return {x,y,p:y*s+x}}
+
+function renderAll(){
+  const M=MODELS[state.model],D=curData(),k=state.k-1,st=D.steps[k],s=st.s,K=D.K;
+  const cum=D.S.slice(0,k+1).reduce((a,b)=>a+b*b,0),tot=D.S.reduce((a,b)=>a+b*b,0);
+  $('#stepinfo').innerHTML='<b>'+state.k+'</b> / '+K+' · <b>'+s+'×'+s+'</b> tokens · '+cum+' of '+tot+' generated';
+  // transformer card
+  $('#tfSize').textContent=M.size;
+  const tfIn=$('#tfIn'),tc=tfIn.getContext('2d');
+  if(!st.input){tc.fillStyle=css('--m');tc.fillRect(0,0,128,128);tc.fillStyle='#fff';tc.font='600 34px IBM Plex Mono, monospace';tc.textAlign='center';tc.textBaseline='middle';tc.fillText('[s]',64,66);
+    $('#tfInCap').innerHTML='start token';}
+  else{drawField(tfIn,st.input,s,s,null,{grid:true});$('#tfInCap').innerHTML='f̂<sub>'+(k)+'</sub> resized to '+s+'×'+s;}
+  drawMask($('#maskMini'),state.model,k,false);
+  const ab=$('#attnBadge');
+  if(M.attn==='causal'){ab.textContent='block-wise causal · KV cache';}else{ab.textContent='current scale only · no KV cache';}
+  $('#tfText').innerHTML=state.model==='var'?'Predicts all '+s*s+' tokens of scale '+state.k+' in one forward pass, attending to every coarser scale.'
+    :state.model==='switti'?'Self-attention stays inside scale '+state.k+'; coarser scales arrive only through the upsampled input, text through cross-attention.'
+    :'Attends to all coarser scales and to the text; outputs '+DBITS+' bits per token (32 in the real model) instead of one index.';
+  // token card
+  $('#tokK').textContent=state.k;$('#tokSize').textContent=s+'×'+s;
+  const tg=$('#tokToggles');
+  if(M.quant==='vq'){tg.innerHTML='<span class="sub">Colour:</span><span class="toggle"><button data-view="id" aria-pressed="'+(state.view==='id')+'">token ID</button><button data-view="vec" aria-pressed="'+(state.view==='vec')+'">code vector</button></span>';}
+  else{tg.innerHTML='<span class="sub">Show:</span><span class="toggle"><button data-view="id" aria-pressed="'+(state.view==='id')+'">12-bit ID</button><button data-view="bit" aria-pressed="'+(state.view==='bit')+'">one bit plane</button></span>'+
+    (state.view==='bit'?' <select id="bitSel" aria-label="Bit plane" style="padding:2px 6px;font-size:12px">'+Array.from({length:DBITS},(_,j)=>'<option value="'+j+'"'+(j===state.bit?' selected':'')+'>'+'RGB'[Math.floor(j/BITS_PER_CH)]+' bit '+(j%BITS_PER_CH+1)+'</option>').join('')+'</select>':'');}
+  tg.querySelectorAll('button[data-view]').forEach(b=>b.onclick=()=>{state.view=b.dataset.view;renderAll()});
+  const bs=$('#bitSel');if(bs)bs.onchange=()=>{state.bit=+bs.value;renderAll()};
+  drawTokens(D,k);
+  $('#tokText').innerHTML=M.quant==='vq'?'Each cell is one index into the shared codebook of <b>V = 4096</b> vectors. Scale '+state.k+' adds '+s*s+' tokens.'
+    :'Each token is <b>'+DBITS+' bits</b> (toy) → implicit vocabulary 2<sup>'+DBITS+'</sup> = 4096. Infinity uses 32 bits → 2<sup>32</sup> ≈ 4.3 billion codes.';
+  // image
+  $('#img').getContext('2d').putImageData(decoded(D,k),0,0);
+  $('#imgSize').textContent=M.res+'² output';
+  $('#imgText').innerHTML='Decoded from f̂<sub>'+state.k+'</sub>, the sum of scales 1–'+state.k+'. Latent '+D.L+'×'+D.L+' → '+M.res+'×'+M.res+' pixels (16× downsampling).';
+  renderFilm(D);renderTokenizer(D,k);drawMask($('#maskBig'),state.model,k,true);renderAttnText(D,k);renderHead(D,k);renderCfg(D);renderSpeedText(D);
+}
+function drawTokens(D,k){
+  const st=D.steps[k],s=st.s,cv=$('#tok'),c=cv.getContext('2d'),W=cv.width;c.clearRect(0,0,W,W);const cw=W/s;
+  const M=MODELS[state.model];
+  for(let y=0;y<s;y++)for(let x=0;x<s;x++){const p=y*s+x;let col;
+    if(M.quant==='vq'){col=state.view==='vec'?'rgb('+sgn2rgb(st.q.vals[p*3],1.2)+','+sgn2rgb(st.q.vals[p*3+1],1.2)+','+sgn2rgb(st.q.vals[p*3+2],1.2)+')':hashColor(st.q.ids[p]);}
+    else{if(state.view==='bit'){col=st.q.bits[p*DBITS+state.bit]?css('--m'):css('--soft');}else col=hashColor(st.q.ids[p]);}
+    c.fillStyle=col;c.fillRect(Math.floor(x*cw),Math.floor(y*cw),Math.ceil(cw),Math.ceil(cw))}
+  if(s<=24){c.strokeStyle='rgba(0,0,0,.28)';c.lineWidth=1;c.beginPath();for(let i=1;i<s;i++){const v=Math.round(i*cw)+.5;c.moveTo(v,0);c.lineTo(v,W);c.moveTo(0,v);c.lineTo(W,v)}c.stroke()}
+  if(s<=4){c.fillStyle='#fff';c.font='500 '+(s===1?30:s<=2?22:16)+'px IBM Plex Mono, monospace';c.textAlign='center';c.textBaseline='middle';
+    for(let y=0;y<s;y++)for(let x=0;x<s;x++){c.save();c.shadowColor='rgba(0,0,0,.6)';c.shadowBlur=3;c.fillText(st.q.ids[y*s+x],(x+.5)*cw,(y+.5)*cw);c.restore()}}
+  const sel=selIndex(s);c.strokeStyle=css('--ink');c.lineWidth=2.5;c.strokeRect(sel.x*cw+1.5,sel.y*cw+1.5,cw-3,cw-3);
+}
+function renderFilm(D){
+  const f=$('#film');
+  if(f.dataset.key!==D.model+D.scene){f.dataset.key=D.model+D.scene;f.innerHTML='';
+    D.S.forEach((s,i)=>{const b=document.createElement('button');b.type='button';b.setAttribute('aria-label','Jump to scale '+(i+1));
+      const cv=document.createElement('canvas');cv.width=cv.height=N;cv.style.width=cv.style.height='58px';cv.style.borderRadius='4px';cv.getContext('2d').putImageData(decoded(D,i),0,0);
+      const sp=document.createElement('span');sp.textContent=s+'×'+s;b.append(cv,sp);b.onclick=()=>{stopPlay();setK(i+1)};f.append(b)})}
+  Array.from(f.children).forEach((b,i)=>{b.setAttribute('aria-current',i===state.k-1?'true':'false');b.classList.toggle('future',i>state.k-1)});
+}
+function renderTokenizer(D,k){
+  const st=D.steps[k],L=D.L,s=st.s,g=autoGain(st.resid);
+  drawField($('#tz1'),st.resid,L,L,g);drawField($('#tz2'),st.q.vals,s,s,g,{grid:true});drawField($('#tz3'),st.upq,L,L,g);drawField($('#tz4'),st.acc,L,L,null);
+  const M=MODELS[state.model];
+  $('#tokzIntro').innerHTML='Step '+(k+1)+' of '+D.K+'. The encoder has already turned the image into a '+L+'×'+L+' latent <span class="mono">f</span>. Each step takes what the previous scales still miss, captures it with '+s+'×'+s+' tokens, and adds the result to the running reconstruction. '+
+    (M.quant==='vq'?'Here every residual vector snaps to the nearest of 4096 code vectors (one codebook shared by all scales).':'Here each residual value is written as 4 successive sign bits per channel, Infinity-style; the step size shrinks by half with each bit.')+
+    ' Residual images ①–③ are shown with automatic contrast, grey = 0.';
+  // energy chart
+  const cv=$('#energy'),c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const ink=css('--ink'),muted=css('--muted'),line=css('--line'),mcol=css('--m');
+  const left=70,bottom=H-40,top=20,right=W-10;const vals=D.steps.map(t=>t.energy);const mx=vals[0];
+  c.strokeStyle=line;c.lineWidth=1;c.font='18px IBM Plex Mono, monospace';c.fillStyle=muted;c.textAlign='right';c.textBaseline='middle';
+  [0,.25,.5,.75,1].forEach(f=>{const y=bottom-(bottom-top)*f;c.beginPath();c.moveTo(left,y+.5);c.lineTo(right,y+.5);c.stroke();c.fillText((f*100|0)+'%',left-8,y)});
+  const bw=(right-left)/D.K;
+  vals.forEach((v,i)=>{const h=(bottom-top)*v/mx;c.fillStyle=mcol;c.globalAlpha=i===k?1:(i<k?.55:.2);c.fillRect(left+i*bw+bw*.15,bottom-h,bw*.7,h)});
+  c.globalAlpha=1;c.fillStyle=muted;c.textAlign='center';c.textBaseline='top';vals.forEach((v,i)=>c.fillText(D.S[i],left+i*bw+bw/2,bottom+8));
+  const red=st.energy>0?(100*(1-(k+1<D.K?D.steps[k+1].energy:0)/vals[0])):100;
+  $('#energyText').innerHTML='<b>Residual energy before each scale</b>, relative to scale 1 (x-axis: tokens per side). After scale '+(k+1)+', the tokens have captured '+(k+1<D.K?red.toFixed(1)+'%':'everything the toy latent holds, up to quantization error,')+' of the latent’s energy. Fine scales carry many tokens but each one encodes only a small correction, which is why the transformer can predict them in parallel without losing coherence.';
+}
+function renderAttnText(D,k){
+  const M=MODELS[state.model];let h='';
+  const n=D.S.slice(0,k+1).reduce((a,b)=>a+b*b,0),own=D.S[k]*D.S[k];
+  if(M.attn==='causal'){
+    h='<p><b>Block-wise causal mask</b> ('+M.name+'). Rows are queries, columns are keys, and each block is one scale (block sides drawn ∝ tokens per side so the small scales stay visible). A token of scale '+(k+1)+' may attend to its own scale and every coarser scale: <b>'+n.toLocaleString()+'</b> keys for each of its '+own.toLocaleString()+' queries.</p>'+
+      '<p>Training feeds all scales at once under this mask (teacher forcing). At inference the keys and values of finished scales are kept in a <b>KV cache</b> that grows with every step.</p>'+
+      (state.model==='infinity'?'<p>The extra column is <b>cross-attention to the Flan-T5 text tokens</b>, available at every scale.</p>':'<p>VAR has no text: the class enters as the start token and through AdaLN.</p>');
+  }else{
+    h='<p><b>Scale-local (non-causal) attention</b> (SWITTI). A token of scale '+(k+1)+' attends only to the '+own.toLocaleString()+' tokens of its own scale, compared with '+n.toLocaleString()+' under VAR’s mask.</p>'+
+      '<p>Information from coarser scales is not lost: the input to scale k is the upsampled running sum f̂<sub>k−1</sub>, which already contains everything generated so far. SWITTI’s authors found causal models attend mostly to the current scale anyway, so dropping the mask costs little quality and removes the KV cache (up to 2.3 GB saved per 1024² image, about 21% faster sampling).</p>'+
+      '<p>The extra column is <b>cross-attention to the CLIP + OpenCLIP text tokens</b>, which every scale can read.</p>';
+  }
+  $('#attnText').innerHTML=h;
+}
+function sigmoid(x){return 1/(1+Math.exp(-x))}
+function renderHead(D,k){
+  const st=D.steps[k],s=st.s,sel=selIndex(s),x=[st.rs[sel.p*3],st.rs[sel.p*3+1],st.rs[sel.p*3+2]],M=MODELS[state.model],tau=state.tau;
+  $('#tauOut').textContent=tau.toFixed(2);
+  $('#headSel').innerHTML='Selected token: scale '+(k+1)+', row '+(sel.y+1)+', column '+(sel.x+1)+'. Target residual (Δr, Δg, Δb) = <span class="mono">('+x.map(v=>v.toFixed(3)).join(', ')+')</span>. Hover or click the token map to pick another.';
+  let h='';
+  if(M.quant==='vq'){
+    const T=0.004*tau;const pc=[0,1,2].map(ch=>{const lg=LEVELS.map(l=>-(x[ch]-l)*(x[ch]-l)/T);const mx=Math.max(...lg);const e=lg.map(v=>Math.exp(v-mx));const z=e.reduce((a,b)=>a+b,0);return e.map(v=>v/z)});
+    const all=[];for(let a=0;a<16;a++)for(let b=0;b<16;b++)for(let c2=0;c2<16;c2++)all.push([a*256+b*16+c2,pc[0][a]*pc[1][b]*pc[2][c2],a,b,c2]);
+    all.sort((p,q)=>q[1]-p[1]);const tgt=st.q.ids[sel.p];
+    h=all.slice(0,7).map(r=>{const v=[LEVELS[r[2]],LEVELS[r[3]],LEVELS[r[4]]];return '<div class="bar'+(r[0]===tgt?' tgt':'')+'"><span><i class="sw" style="background:rgb('+v.map(q=>sgn2rgb(q,1.2)).join(',')+')"></i>#'+r[0]+'</span><span class="track"><span class="fill" style="display:block;width:'+(r[1]*100).toFixed(1)+'%"></span></span><span>'+(r[1]*100).toFixed(1)+'%</span></div>'}).join('');
+    h='<div class="sub" style="font-size:12.5px;margin-bottom:4px">Top 7 of 4096 codes · softmax over −distance / temperature</div>'+h;
+    $('#headText').innerHTML='<p style="font-size:14px">'+M.name+'’s head is a single linear layer followed by a <b>4096-way softmax</b> at every position of the scale. Sampling picks one index per token (top-k / top-p filtering is applied first in practice). In this toy the probabilities come from the distance between the true residual and each code, so the best code is usually, but not always, the most likely one. Raise the temperature to see the distribution spread.</p>';
+  }else{
+    const step0=st.q.m/2;let rows='';
+    for(let ch=0;ch<3;ch++){let v=0,step=step0;for(let j=0;j<BITS_PER_CH;j++){const b=st.q.bits[sel.p*DBITS+ch*BITS_PER_CH+j];const p1=sigmoid((x[ch]-v)/step*3/tau);
+        rows+='<div class="bar tgt"><span>'+'RGB'[ch]+' bit '+(j+1)+' → <b>'+b+'</b></span><span class="track"><span class="fill" style="display:block;width:'+(p1*100).toFixed(1)+'%"></span></span><span>'+(p1*100).toFixed(0)+'%</span></div>';
+        v+=b?step:-step;step/=2}}
+    h='<div class="sub" style="font-size:12.5px;margin-bottom:4px">'+DBITS+' independent binary classifiers · bar = p(bit = 1)</div>'+rows;
+    $('#headText').innerHTML='<p style="font-size:14px">Infinity’s <b>Infinite-Vocabulary Classifier</b> replaces the softmax with d binary classifiers, one per bit, all predicted at once. Early bits (coarse sign of the residual) are confident; later bits, which refine smaller and smaller amounts, are closer to 50%. A wrong late bit costs little, which is one reason bitwise prediction tolerates errors well.</p>';
+  }
+  $('#headBars').innerHTML=h;
+  const d=+$('#dbits').value,hh=2048;$('#dOut').textContent='d = '+d+' → 2^'+d+' codes';
+  $('#cConv').textContent=fmtBig(hh*Math.pow(2,d));$('#cIvc').textContent=fmtBig(hh*2*d);$('#cSave').textContent=(100*(1-(2*d)/Math.pow(2,d))).toFixed(d>20?6:2)+'%';
+}
+function fmtBig(n){if(n<1e3)return n.toFixed(0);const u=[[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];if(n>=1e15)return n.toExponential(1).replace('e+',' × 10^');for(const [v,s] of u)if(n>=v)return (n/v).toFixed(n/v<10?1:0)+' '+s;return ''}
+function renderCfg(D){
+  const cv=$('#cfg'),c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+  const K=D.K,muted=css('--muted'),line=css('--line'),mcol=css('--m');let vals,mx,txt;
+  if(state.model==='var'){vals=D.S.map((_,i)=>1.5*i/(K-1));mx=6;txt='VAR’s official sampler ramps the guidance strength linearly from 0 at the first scale to its maximum at the last (1.5 shown as an example). Guidance needs a second, unconditional forward pass with the class dropped.';}
+  else if(state.model==='switti'){vals=D.S.map((_,i)=>i>=K-2?0:6);mx=6;txt='SWITTI uses guidance 6 on early scales and switches it off on the last two (shown as 0). Those two scales hold most of the tokens, so skipping the unconditional pass there gives about 32% extra speed and fewer fine-grained artifacts.';}
+  else{vals=D.S.map(()=>3);mx=6;txt='Infinity applies classifier-free guidance at every scale (3 shown as an example value); the released sampler also accepts a per-scale guidance list.';}
+  const left=50,bottom=H-36,top=14,right=W-10,bw=(right-left)/K;
+  c.font='16px IBM Plex Mono, monospace';c.fillStyle=muted;c.textAlign='right';c.textBaseline='middle';c.strokeStyle=line;
+  [0,3,6].forEach(v=>{const y=bottom-(bottom-top)*v/mx;c.beginPath();c.moveTo(left,y+.5);c.lineTo(right,y+.5);c.stroke();c.fillText(v,left-8,y)});
+  vals.forEach((v,i)=>{const h=(bottom-top)*v/mx;c.fillStyle=mcol;c.globalAlpha=i===state.k-1?1:.55;c.fillRect(left+i*bw+bw*.18,bottom-h,bw*.64,Math.max(h,0));if(v===0){c.globalAlpha=1;c.fillStyle=muted;c.textAlign='center';c.fillText('off',left+i*bw+bw/2,bottom-12)}});
+  c.globalAlpha=1;c.fillStyle=muted;c.textAlign='center';c.textBaseline='top';D.S.forEach((s,i)=>c.fillText(s,left+i*bw+bw/2,bottom+8));
+  $('#cfgText').textContent=txt;
+}
+
+/* ---------- speed race ---------- */
+let race=null;
+function renderSpeedText(D){
+  const L=D.L,K=D.K,tot=D.S.reduce((a,b)=>a+b*b,0);
+  $('#speedIntro').innerHTML='Both methods below end with the same '+L+'×'+L+' token grid of the current picture. Each tick is <b>one forward pass</b> of the transformer. A raster model emits one token per pass; a next-scale model emits a whole scale per pass.';
+  $('#speedText').innerHTML='Raster order needs <b>'+(L*L).toLocaleString()+'</b> sequential passes for this grid; next-scale prediction needs <b>'+K+'</b> (processing '+tot.toLocaleString()+' tokens in total, since coarse scales are extra). For an n×n grid, raster AR costs O(n⁶) compute in total versus O(n⁴) for VAR. With a 64×64 grid (Infinity at 1024²) the gap is 4,096 passes against 13.';
+  if(!race)resetRace(D);
+}
+function resetRace(D){
+  const a=$('#raceAR').getContext('2d'),b=$('#raceVAR').getContext('2d');[a,b].forEach(c=>{c.fillStyle=css('--soft');c.fillRect(0,0,N,N)});
+  $('#raceARc').textContent='pass 0 / '+(D.L*D.L).toLocaleString();$('#raceVARc').textContent='pass 0 / '+D.K;
+}
+function startRace(){
+  stopRace();const D=curData(),L=D.L,cell=N/L;const fin=decoded(D,D.K-1);
+  const tmp=document.createElement('canvas');tmp.width=tmp.height=N;tmp.getContext('2d').putImageData(fin,0,0);
+  const a=$('#raceAR').getContext('2d'),b=$('#raceVAR').getContext('2d');resetRace(D);let t=0;
+  const per=L>32?8:1; // tokens per tick only speeds the very long raster demo visually; counter still counts passes
+  race=setInterval(()=>{
+    for(let r=0;r<per;r++){if(t<L*L){const x=t%L,y=Math.floor(t/L);a.drawImage(tmp,x*cell,y*cell,cell,cell,x*cell,y*cell,cell,cell);t++}}
+    $('#raceARc').textContent='pass '+Math.min(t,L*L).toLocaleString()+' / '+(L*L).toLocaleString()+(t>=L*L?' · done':'')+(per>1?' (shown at 8 passes per tick)':'');
+    const vk=Math.min(D.K,Math.ceil(t/per));if(vk>0){b.putImageData(decoded(D,vk-1),0,0)}
+    $('#raceVARc').textContent='pass '+vk+' / '+D.K+(vk>=D.K?' · done':'');
+    if(t>=L*L)stopRace();
+  },45);
+}
+function stopRace(){if(race){clearInterval(race)}race=null}
+
+/* ---------- bitwise self-correction ---------- */
+let bscSeed=7;
+function renderBSC(){
+  const p=+$('#flipP').value;$('#flipOut').textContent=(p*100).toFixed(0)+'%';
+  const scene=MODELS[state.model].prompts[state.prompt].scene;const D=tokenize('infinity',scene),S=D.S,L=D.L;
+  const clean=decodeAcc(D,D.steps[D.K-1].acc,1);
+  let R=rng(bscSeed);let acc=new Float32Array(L*L*3);
+  for(let k=0;k<D.K;k++){const s=S[k],q=D.steps[k].q,bits=q.bits.slice();for(let i=0;i<bits.length;i++)if(R()<p)bits[i]^=1;
+    const up=bilinear(dequantBits(bits,s*s,q.m),s,s,L,L);for(let i=0;i<acc.length;i++)acc[i]+=up[i]}
+  const noCorr=decodeAcc(D,acc,1);
+  R=rng(bscSeed);acc=new Float32Array(L*L*3);
+  for(let k=0;k<D.K;k++){const s=S[k];const resid=new Float32Array(L*L*3);for(let i=0;i<resid.length;i++)resid[i]=D.lat[i]-acc[i];
+    const q=quantBits(areaDown(resid,L,L,s,s),s);const bits=q.bits.slice();for(let i=0;i<bits.length;i++)if(R()<p)bits[i]^=1;
+    const up=bilinear(dequantBits(bits,s*s,q.m),s,s,L,L);for(let i=0;i<acc.length;i++)acc[i]+=up[i]}
+  const corr=decodeAcc(D,acc,1);
+  $('#bsc0').getContext('2d').putImageData(clean.img,0,0);$('#bsc1').getContext('2d').putImageData(noCorr.img,0,0);$('#bsc2').getContext('2d').putImageData(corr.img,0,0);
+  $('#bsc0c').textContent='PSNR '+clean.psnr.toFixed(1)+' dB';$('#bsc1c').textContent='PSNR '+noCorr.psnr.toFixed(1)+' dB';$('#bsc2c').textContent='PSNR '+corr.psnr.toFixed(1)+' dB';
+}
+
+
+function renderGallery(){
+  const M=MODELS[state.model],g=$('#gallery');$('#galLabel').textContent=M.prompts.length+' examples';
+  if(g.dataset.model!==state.model){g.dataset.model=state.model;g.innerHTML='';
+    M.prompts.forEach((pr,i)=>{const b=document.createElement('button');b.type='button';b.title=pr.label;b.setAttribute('aria-label','Example: '+pr.label);
+      const cv=document.createElement('canvas');cv.width=cv.height=N;const sm=document.createElement('small');sm.textContent=state.model==='var'?pr.label.split(' · ')[1]:pr.scene;
+      b.append(cv,sm);b.onclick=()=>{stopPlay();stopRace();race=null;state.prompt=i;$('#prompt').value=i;renderCond();renderAll();renderBSC();renderGallery()};g.append(b);
+      const m=state.model;setTimeout(()=>{if(state.model!==m)return;const D=tokenize(m,pr.scene);cv.getContext('2d').putImageData(decoded(D,D.K-1),0,0)},30+i*25)})}
+  Array.from(g.children).forEach((b,i)=>b.setAttribute('aria-pressed',i===state.prompt?'true':'false'));
+}
+/* ---------- interactions ---------- */
+function setModel(m){
+  stopPlay();stopRace();race=null;state.model=m;document.body.dataset.model=m;state.view='id';state.bit=0;
+  $$('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.model===m?'true':'false'));
+  const M=MODELS[m];if(state.prompt>=M.prompts.length)state.prompt=0;$('#promptLabel').textContent=M.promptLabel;
+  $('#prompt').innerHTML=M.prompts.map((p,i)=>'<option value="'+i+'"'+(i===state.prompt?' selected':'')+'>'+p.label+'</option>').join('');
+  const sl=$('#scale');sl.max=M.scales.length;state.k=M.scales.length;sl.value=state.k;
+  renderCond();renderAll();renderBSC();renderGallery();
+}
+function setK(k){state.k=k;$('#scale').value=k;renderAll()}
+function stopPlay(){if(state.playing){clearInterval(state.playing);state.playing=null}$('#play span').textContent='Generate'}
+$$('.seg button').forEach(b=>b.onclick=()=>setModel(b.dataset.model));
+$('#prompt').onchange=e=>{stopPlay();stopRace();race=null;state.prompt=+e.target.value;renderCond();renderAll();renderBSC();renderGallery()};
+$('#scale').oninput=e=>{stopPlay();setK(+e.target.value)};
+$('#play').onclick=()=>{
+  if(state.playing){stopPlay();return}
+  const K=MODELS[state.model].scales.length;setK(1);$('#play span').textContent='Pause';
+  state.playing=setInterval(()=>{if(state.k>=K){stopPlay();return}setK(state.k+1)},matchMedia('(prefers-reduced-motion: reduce)').matches?300:750);
+};
+$('#tau').oninput=e=>{state.tau=+e.target.value;const D=curData();renderHead(D,state.k-1)};
+$('#dbits').oninput=()=>{const D=curData();renderHead(D,state.k-1)};
+$('#flipP').oninput=renderBSC;$('#reflip').onclick=()=>{bscSeed=(bscSeed*48271)%2147483647;renderBSC()};
+$('#raceBtn').onclick=startRace;$('#raceStop').onclick=stopRace;
+$$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));$$('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.tab))});
+
+const tok=$('#tok'),tip=$('#tip');
+function tokAt(e){const r=tok.getBoundingClientRect();return {u:Math.min(.9999,Math.max(0,(e.clientX-r.left)/r.width)),v:Math.min(.9999,Math.max(0,(e.clientY-r.top)/r.height))}}
+tok.addEventListener('mousemove',e=>{
+  const D=curData(),k=state.k-1,st=D.steps[k],s=st.s,{u,v}=tokAt(e);const x=Math.floor(u*s),y=Math.floor(v*s),p=y*s+x;
+  let h='scale '+(k+1)+' · ('+(y+1)+', '+(x+1)+')<br>';
+  if(MODELS[state.model].quant==='vq'){const q=[st.q.vals[p*3],st.q.vals[p*3+1],st.q.vals[p*3+2]];h+='token #'+st.q.ids[p]+'<br>code (Δr,Δg,Δb) = '+q.map(t=>(t>0?'+':'')+t.toFixed(3)).join(' ');}
+  else{let b='';for(let j=0;j<DBITS;j++){b+=st.q.bits[p*DBITS+j];if(j%4===3&&j<DBITS-1)b+=' '}h+='bits '+b+'<br>id '+st.q.ids[p]+' of 2^'+DBITS;}
+  tip.innerHTML=h;tip.style.display='block';tip.style.left=Math.min(innerWidth-250,e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px';
+  state.selU=u;state.selV=v;drawTokens(D,k);renderHead(D,k);
+});
+tok.addEventListener('mouseleave',()=>{tip.style.display='none'});
+tok.addEventListener('click',e=>{const {u,v}=tokAt(e);state.selU=u;state.selV=v;const D=curData();drawTokens(D,state.k-1);renderHead(D,state.k-1)});
+const mo=new MutationObserver(()=>renderAll());mo.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>renderAll())}catch(e){}
+
+setModel('var');
+})();
+</script>
+</body>
+</html>

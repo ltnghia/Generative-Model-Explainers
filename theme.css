@@ -1,0 +1,122 @@
+/* Shared theme for the Generative Model Explainers site.
+   Loaded after each page's own <style>, so these rules win.
+   One type system (Archivo / IBM Plex Sans / IBM Plex Mono), one neutral palette with light and dark,
+   one set of component shapes. Each page keeps its own model accent colours. */
+
+:root{
+  --bg:#f3f4f7; --panel:#ffffff; --ink:#171c29; --muted:#5a6275; --line:#dde0e8; --soft:#eceef3;
+  --fig:#fbfbfd;
+  --font-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --fd:var(--font-display); --fb:var(--font-body); --fm:var(--font-mono);
+  --card:var(--panel);
+  --radius:12px; --radius-sm:8px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1117; --panel:#181b24; --ink:#e7e9f0; --muted:#9ba2b3; --line:#2b3040; --soft:#21252f; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0f1117; --panel:#181b24; --ink:#e7e9f0; --muted:#9ba2b3; --line:#2b3040; --soft:#21252f; color-scheme:dark;}
+
+/* ---------- base ---------- */
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance}
+code,.mono{font-family:var(--font-mono)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+/* ---------- header (all three pages use header.top) ---------- */
+body>header.top{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+body>header.top h1{font-family:var(--font-display);font-size:1.35rem;font-weight:800;letter-spacing:-.01em;margin:0}
+/* inside the site, the site's own bar replaces each page's header */
+html.embedded body>header.top{display:none}
+
+/* ---------- cards, controls, buttons ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none}
+select{background:var(--soft);border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 10px;color:var(--ink);font:inherit;font-size:.9rem}
+
+/* ---------- long-form articles ---------- */
+.explain,article.explain,body>article{max-width:760px}
+.eq{font-family:var(--font-mono)!important;font-size:.9rem!important;background:var(--panel)!important;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 14px;margin:12px 0;text-align:left!important;overflow-x:auto;white-space:nowrap}
+.callout{background:var(--panel);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:10px 14px;font-size:.98rem}
+
+/* =========================================================
+   GAN Explainer
+   ========================================================= */
+html[data-explainer="gan"] .explain h3{font-size:1.6rem;font-weight:800;margin:40px 0 10px}
+html[data-explainer="gan"] .explain h3:first-child{margin-top:0}
+html[data-explainer="gan"] .explain h4{font-size:1.12rem;font-weight:700;margin:24px 0 6px}
+html[data-explainer="gan"] .explain p,html[data-explainer="gan"] .explain li{font-size:1rem;line-height:1.7}
+html[data-explainer="gan"] .explain table{background:var(--panel);border:1px solid var(--line)}
+html[data-explainer="gan"] .explain th{font-family:var(--font-display);font-weight:700;color:var(--ink);background:var(--soft)}
+html[data-explainer="gan"] .ctl label,html[data-explainer="gan"] .ctl>span:first-child{font-size:.76rem;text-transform:uppercase;letter-spacing:.06em}
+html[data-explainer="gan"] .btn{border-radius:var(--radius-sm)}
+html[data-explainer="gan"] footer{border-top:1px solid var(--line)}
+
+/* =========================================================
+   VAR Explainer
+   ========================================================= */
+html[data-explainer="var"] body>header.top{padding:10px 20px}
+html[data-explainer="var"] .brand{align-items:center}
+html[data-explainer="var"] .brand svg{flex:none}
+html[data-explainer="var"] .controls{background:var(--panel)}
+html[data-explainer="var"] .ctl label,html[data-explainer="var"] .glabel{font-size:.76rem}
+html[data-explainer="var"] .btn{border-radius:var(--radius-sm)}
+html[data-explainer="var"] .seg{border-radius:var(--radius-sm)}
+html[data-explainer="var"] .seg button b{font-family:var(--font-display)}
+html[data-explainer="var"] .deep{border-radius:var(--radius)}
+html[data-explainer="var"] article h2{font-size:1.6rem;font-weight:800;margin:40px 0 10px}
+html[data-explainer="var"] article h3{font-size:1.12rem;font-weight:700;margin:24px 0 6px}
+html[data-explainer="var"] article p,html[data-explainer="var"] article li{font-size:1rem;line-height:1.7}
+html[data-explainer="var"] table{font-size:.9rem}
+html[data-explainer="var"] footer{font-size:.86rem}
+
+/* =========================================================
+   Diffusion Explainer+  (was light-only with hard-coded colours)
+   ========================================================= */
+html[data-explainer="diffusion"]{--card:var(--panel)}
+html[data-explainer="diffusion"] body{font-size:16px}
+html[data-explainer="diffusion"] .top-inner{max-width:none;padding:10px 20px}
+html[data-explainer="diffusion"] .brand{min-width:0}
+html[data-explainer="diffusion"] .brand p{font-size:.78rem}
+html[data-explainer="diffusion"] .logo{width:34px;height:34px;border-radius:8px;font-size:18px}
+/* model tabs: same pills as the GAN page */
+html[data-explainer="diffusion"] nav.tabs{background:transparent;padding:0;gap:4px;margin-left:auto}
+html[data-explainer="diffusion"] nav.tabs button{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font:500 .92rem var(--font-body);color:var(--muted);background:transparent}
+html[data-explainer="diffusion"] nav.tabs button:hover{border-color:var(--ink);color:var(--ink)}
+html[data-explainer="diffusion"] nav.tabs button.on{background:var(--ink);border-color:var(--ink);color:var(--panel);box-shadow:none}
+html[data-explainer="diffusion"] main{max-width:1220px;padding:22px 20px 40px}
+html[data-explainer="diffusion"] .hero h2{font-size:1.7rem;font-weight:800}
+html[data-explainer="diffusion"] .badge{font-family:var(--font-mono);font-weight:500;letter-spacing:.02em;text-transform:none;font-size:.76rem;border-radius:999px;padding:2px 10px}
+html[data-explainer="diffusion"] .card{padding:14px 16px}
+html[data-explainer="diffusion"] .card h3{font-size:1rem;font-weight:700}
+html[data-explainer="diffusion"] .controls{background:var(--panel)}
+html[data-explainer="diffusion"] .controls label{font-size:.76rem;font-weight:500;letter-spacing:.06em}
+html[data-explainer="diffusion"] .controls select{background:var(--soft);color:var(--ink);font:400 .9rem var(--font-body)}
+html[data-explainer="diffusion"] .controls .gval{font:500 .85rem var(--font-mono)}
+html[data-explainer="diffusion"] .arrow{color:var(--muted)}
+html[data-explainer="diffusion"] .prompt-box{background:var(--soft);border-color:var(--line)}
+html[data-explainer="diffusion"] .tok{font-family:var(--font-mono);font-weight:500;background:color-mix(in srgb,var(--txt) 14%,var(--panel));color:var(--ink)}
+html[data-explainer="diffusion"] .tok.sp{background:var(--soft);color:var(--muted)}
+html[data-explainer="diffusion"] .tok.cl{background:color-mix(in srgb,var(--flux) 16%,var(--panel));color:var(--ink)}
+html[data-explainer="diffusion"] .shape,html[data-explainer="diffusion"] .readout{font-family:var(--font-mono)}
+html[data-explainer="diffusion"] .shape{background:var(--soft)}
+html[data-explainer="diffusion"] .steplabel{font-family:var(--font-mono);font-weight:500}
+html[data-explainer="diffusion"] .formula{font-family:var(--font-mono);font-size:.84rem;background:var(--soft);text-align:left;overflow-x:auto}
+html[data-explainer="diffusion"] .play{border-radius:var(--radius-sm)}
+html[data-explainer="diffusion"] details.about{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0}
+html[data-explainer="diffusion"] article.explain{margin:40px auto 0}
+html[data-explainer="diffusion"] article.explain h2{font-size:1.6rem;font-weight:800;margin:40px 0 10px}
+html[data-explainer="diffusion"] article.explain h3{font-size:1.12rem;font-weight:700;margin:24px 0 6px}
+html[data-explainer="diffusion"] article.explain p,html[data-explainer="diffusion"] article.explain li{font-size:1rem;line-height:1.7}
+html[data-explainer="diffusion"] .callout{border-left:3px solid var(--accent)}
+/* the SVG figures are drawn for a light background, so they keep one in both themes */
+html[data-explainer="diffusion"] .diagram{background:var(--fig);border-color:var(--line);border-radius:var(--radius)}
+html[data-explainer="diffusion"] .section-wide{max-width:1100px}
+html[data-explainer="diffusion"] .section-wide h2{font-family:var(--font-display);font-size:1.6rem!important;font-weight:800}
+html[data-explainer="diffusion"] table.cmp{background:var(--panel);border-radius:var(--radius)}
+html[data-explainer="diffusion"] table.cmp th{background:var(--soft);font-family:var(--font-display);font-weight:700;font-size:.9rem;text-transform:none;letter-spacing:0;color:var(--ink)}
+html[data-explainer="diffusion"] table.cmp td:first-child{color:var(--muted);font-weight:500}
+html[data-explainer="diffusion"] footer{border-top:1px solid var(--line);font-size:.86rem}
+html[data-explainer="diffusion"] input[type=range]{accent-color:var(--accent)}
+html[data-explainer="gan"] select,html[data-explainer="var"] select{max-width:420px}

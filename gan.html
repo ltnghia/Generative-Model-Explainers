@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en" data-explainer="gan">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script>try{if(window.frameElement&&window.frameElement.id==="frame")document.documentElement.classList.add("embedded")}catch(e){}</script>
+<title>GAN Explainer</title>
+<style>
+/* Layout idea: a lab bench. Each tab = control strip, a live architecture diagram whose nodes hold real outputs, a workspace, then the long-form explanation. Violet = generator, amber = discriminator, teal = real data. */
+:root{
+  --bg:#f3f4f8; --panel:#ffffff; --ink:#1a1f2e; --muted:#596173; --line:#dcdfe8; --soft:#eceef4;
+  --gen:#6448d4; --dis:#c46d12; --real:#0f857a; --bad:#c2334a;
+  --font-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11131a;--panel:#1a1d27;--ink:#e6e8f0;--muted:#9aa1b3;--line:#2d3142;--soft:#232736;--gen:#a08cff;--dis:#f0a14d;--real:#3cc2b2;--bad:#ff6b82;color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#11131a;--panel:#1a1d27;--ink:#e6e8f0;--muted:#9aa1b3;--line:#2d3142;--soft:#232736;--gen:#a08cff;--dis:#f0a14d;--real:#3cc2b2;--bad:#ff6b82;color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--gen)}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;line-height:1.2;margin:0}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--gen);outline-offset:2px}
+.mono{font-family:var(--font-mono);font-size:.85em}
+.wrap{max-width:1220px;margin:0 auto;padding:0 20px}
+
+/* header */
+.top{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.top .wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand h1{font-size:1.35rem;font-weight:800;letter-spacing:-.01em}
+.brand small{display:block;font-family:var(--font-body);font-weight:400;font-size:.78rem;color:var(--muted);letter-spacing:0}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.tab{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 14px;cursor:pointer;font-weight:500;font-size:.92rem;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.tab:hover{border-color:var(--ink)}
+
+.view{display:none;padding:22px 0 40px}
+.view.active{display:block}
+.lede{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.lede h2{font-size:1.7rem;font-weight:800}
+.lede p{margin:0;color:var(--muted);max-width:70ch}
+
+/* control strip */
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.ctl{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted)}
+.ctl label{white-space:nowrap}
+.ctl select{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--ink);max-width:290px}
+.ctl input[type=range]{width:130px;accent-color:var(--gen)}
+.ctl output{font-family:var(--font-mono);font-size:.82rem;color:var(--ink);min-width:3.2em}
+.btn{border:1px solid var(--line);background:var(--soft);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:.88rem;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--gen);border-color:var(--gen);color:#fff}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:var(--soft);padding:5px 10px;cursor:pointer;font-size:.84rem;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.chk{display:flex;align-items:center;gap:6px;font-size:.86rem;color:var(--muted);cursor:pointer}
+.chk input{accent-color:var(--gen)}
+
+/* architecture flow */
+.flowbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 14px 6px;margin-bottom:14px}
+.flowhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.flowhead h3{font-size:1rem;font-weight:700}
+.flowhead span{font-size:.82rem;color:var(--muted)}
+.flowscroll{overflow-x:auto;padding-bottom:8px}
+.flow{position:relative;width:1120px;margin:0 auto}
+.flow svg.arrows{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.flow svg.arrows path{fill:none;stroke:var(--muted);stroke-width:1.6}
+.flow svg.arrows path.live{stroke-dasharray:5 5;animation:dash 1s linear infinite}
+.flow svg.arrows .lbl{font-family:var(--font-mono);font-size:11px;fill:var(--muted)}
+@keyframes dash{to{stroke-dashoffset:-20}}
+@media (prefers-reduced-motion:reduce){.flow svg.arrows path.live{animation:none}}
+.node{position:absolute;border:1.5px solid var(--line);border-radius:10px;background:var(--panel);padding:8px 10px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:5px;transition:box-shadow .15s,border-color .15s}
+.node:hover{border-color:var(--ink)}
+.node[aria-expanded="true"]{box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 18%,transparent);border-color:var(--ink)}
+.node .t{font-weight:600;font-size:.86rem;line-height:1.25}
+.node .s{font-family:var(--font-mono);font-size:.7rem;color:var(--muted);line-height:1.3}
+.node.g{border-color:color-mix(in srgb,var(--gen) 55%,var(--line));background:color-mix(in srgb,var(--gen) 7%,var(--panel))}
+.node.g .t{color:var(--gen)}
+.node.d{border-color:color-mix(in srgb,var(--dis) 55%,var(--line));background:color-mix(in srgb,var(--dis) 8%,var(--panel))}
+.node.d .t{color:var(--dis)}
+.node.r .t{color:var(--real)}
+.node canvas{display:block;border-radius:6px;background:var(--soft);image-rendering:auto}
+.node .open{font-size:.68rem;color:var(--muted)}
+.node .open::before{content:"▸ "}
+.node[aria-expanded="true"] .open::before{content:"▾ "}
+
+/* workspace */
+.work{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:14px;align-items:start}
+@media (max-width:900px){.work{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h4{margin:0 0 6px;font-family:var(--font-display);font-size:1.02rem}
+.card p{margin:.4em 0;font-size:.92rem}
+.card .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:.84rem;margin-top:8px}
+.card .kv dt{color:var(--muted)}
+.card .kv dd{margin:0;font-family:var(--font-mono);font-size:.8rem}
+.detail{border-left:4px solid var(--ink)}
+.detail.g{border-left-color:var(--gen)}.detail.d{border-left-color:var(--dis)}.detail.r{border-left-color:var(--real)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}
+.pill{font-family:var(--font-mono);font-size:.76rem;padding:3px 9px;border-radius:999px;background:var(--soft);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.pill b{font-weight:500}
+.pill.g{border-color:color-mix(in srgb,var(--gen) 50%,var(--line))}
+.pill.d{border-color:color-mix(in srgb,var(--dis) 50%,var(--line))}
+.pill.r{border-color:color-mix(in srgb,var(--real) 50%,var(--line))}
+.note{font-size:.8rem;color:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.side{display:flex;flex-direction:column;gap:14px}
+
+/* GAN canvas */
+.datacard{display:flex;flex-direction:column;align-items:center}
+#ganCanvas{width:100%;max-width:520px;aspect-ratio:1;border-radius:8px;border:1px solid var(--line);background:var(--soft)}
+#lossCanvas{width:100%;height:120px;display:block}
+
+/* pix2pix triptych */
+.trip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:640px){.trip{grid-template-columns:1fr}}
+.fig{display:flex;flex-direction:column;gap:6px}
+.fig .cap{font-size:.82rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.fig .cap b{color:var(--ink);font-weight:600}
+.imgbox{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--soft)}
+.imgbox canvas{width:100%;height:100%;display:block}
+.imgbox canvas.overlay{position:absolute;inset:0;image-rendering:pixelated;opacity:.45;mix-blend-mode:normal}
+.epochbar{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:.86rem;color:var(--muted)}
+.epochbar input{flex:1;accent-color:var(--gen)}
+.lossrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.lossrow button{border:1px solid var(--line);border-radius:8px;background:var(--soft);padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px;align-items:center;font-size:.76rem;color:var(--muted)}
+.lossrow button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+.lossrow canvas{width:100%;aspect-ratio:1;border-radius:5px;display:block}
+
+/* t2i */
+.t2iwork{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:14px;align-items:start}
+@media (max-width:900px){.t2iwork{grid-template-columns:1fr}}
+.genrow{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px}
+@media (max-width:640px){.genrow{grid-template-columns:1fr}}
+.tokens{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+.tok{font-family:var(--font-mono);font-size:.8rem;padding:2px 7px;border-radius:5px;border:1px solid var(--line);background:var(--soft);cursor:pointer}
+.tok.hit{border-color:var(--gen);color:var(--gen)}
+.tok[aria-pressed="true"]{background:var(--gen);color:#fff;border-color:var(--gen)}
+.vec{display:flex;gap:2px;height:22px;align-items:flex-end}
+.vec i{flex:1;border-radius:2px 2px 0 0;background:var(--gen);min-height:2px}
+.vec.z i{background:var(--muted)}
+.vec.mu i{background:var(--dis)}
+.stagestrip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stagestrip button{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.74rem;color:var(--muted)}
+.stagestrip button[aria-pressed="true"]{border-color:var(--gen);color:var(--gen)}
+.stagestrip button:disabled{opacity:.35;cursor:not-allowed}
+.stagestrip canvas{width:100%;aspect-ratio:1;border-radius:5px;display:block}
+.match{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.match figure{margin:0;display:flex;flex-direction:column;gap:4px;font-size:.72rem;color:var(--muted)}
+.match canvas{width:100%;aspect-ratio:1;border-radius:6px;display:block}
+.match .v{font-family:var(--font-mono);font-size:.72rem}
+.match .v.ok{color:var(--real)}.match .v.no{color:var(--bad)}
+
+/* article */
+.explain{max-width:760px;margin:36px auto 0;padding:0 4px}
+.explain h3{font-size:1.45rem;font-weight:800;margin:34px 0 10px}
+.explain h3:first-child{margin-top:0}
+.explain h4{font-family:var(--font-display);font-size:1.08rem;margin:22px 0 6px}
+.explain p,.explain li{font-size:1rem;max-width:68ch}
+.explain .eq{font-family:var(--font-mono);font-size:.9rem;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;overflow-x:auto;white-space:nowrap;margin:10px 0}
+.explain table{border-collapse:collapse;font-size:.88rem;margin:10px 0;font-variant-numeric:tabular-nums}
+.explain th,.explain td{border-bottom:1px solid var(--line);padding:5px 12px;text-align:left}
+.explain th{font-weight:600;color:var(--muted)}
+.timeline{list-style:none;padding:0;margin:12px 0;border-left:2px solid var(--line)}
+.timeline li{padding:0 0 10px 16px;position:relative}
+.timeline li::before{content:"";position:absolute;left:-6px;top:9px;width:10px;height:10px;border-radius:50%;background:var(--gen)}
+.timeline b{font-family:var(--font-mono);font-weight:500;font-size:.85rem;margin-right:8px}
+footer{border-top:1px solid var(--line);background:var(--panel);margin-top:30px}
+footer .wrap{padding-top:22px;padding-bottom:30px;font-size:.86rem;color:var(--muted)}
+footer h3{font-size:1.05rem;color:var(--ink);margin-bottom:8px}
+footer ol{padding-left:20px;columns:2;column-gap:36px}
+@media (max-width:700px){footer ol{columns:1}}
+footer li{margin-bottom:4px;break-inside:avoid}
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="#gan" aria-label="GAN Explainer home">
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="7" width="15" height="20" rx="4" fill="var(--gen)"/><rect x="17" y="7" width="15" height="20" rx="4" fill="var(--dis)"/><path d="M11 17h12M19 13l4 4-4 4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>
+    <h1>GAN Explainer<small>Generative Adversarial Networks, explained with live visualization</small></h1>
+  </a>
+  <nav class="tabs" role="tablist" aria-label="Choose a model">
+    <button class="tab" role="tab" id="tab-gan" data-view="gan" aria-selected="true">GAN</button>
+    <button class="tab" role="tab" id="tab-pix2pix" data-view="pix2pix" aria-selected="false">cGAN · Pix2Pix</button>
+    <button class="tab" role="tab" id="tab-text2image" data-view="text2image" aria-selected="false">Text-to-Image GAN</button>
+  </nav>
+</div></header>
+<main>
+<!-- ===================== GAN VIEW ===================== -->
+<section class="view active" id="view-gan" role="tabpanel" aria-labelledby="tab-gan"><div class="wrap">
+  <div class="lede"><h2>Generative Adversarial Network</h2><p>Two small neural networks are training right now in your browser. The generator learns to turn random noise into points that look like the target data; the discriminator learns to tell real points from fakes.</p></div>
+
+  <div class="controls" role="group" aria-label="GAN controls">
+    <div class="ctl"><label for="ganDs">Example</label><select id="ganDs"></select></div>
+    <button class="btn primary" id="ganPlay" type="button">❚❚ Pause</button>
+    <button class="btn" id="ganStep" type="button">Step</button>
+    <button class="btn" id="ganReset" type="button">↺ Restart</button>
+    <div class="ctl"><label for="ganLr">Learning rate</label><input type="range" id="ganLr" min="0" max="100" value="52"><output id="ganLrOut">0.003</output></div>
+    <div class="ctl"><label for="ganK">D steps per G step</label><input type="range" id="ganK" min="1" max="5" value="1" style="width:80px"><output id="ganKOut">1</output></div>
+    <div class="ctl"><span>Iteration</span><output id="ganIter" style="min-width:4em">0</output></div>
+  </div>
+
+  <div class="flowbox">
+    <div class="flowhead"><h3>Architecture: one training iteration</h3><span>Click any box to see what it does. Boxes show live values.</span></div>
+    <div class="flowscroll"><div class="flow" id="ganFlow" style="height:310px">
+      <svg class="arrows" viewBox="0 0 1120 310" width="1120" height="310" aria-hidden="true">
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+        <path class="live" d="M150,145 H195" marker-end="url(#ah)"/>
+        <path class="live" d="M365,145 C388,145 388,72 410,72" marker-end="url(#ah)"/>
+        <path class="live" d="M560,72 C584,72 584,128 605,128" marker-end="url(#ah)"/>
+        <path class="live" d="M560,222 C584,222 584,162 605,162" marker-end="url(#ah)"/>
+        <path class="live" d="M775,145 H820" marker-end="url(#ah)"/>
+        <path class="live" d="M950,145 H990" marker-end="url(#ah)"/>
+        <path d="M1060,222 V262 H690 V224" stroke-dasharray="3 4" marker-end="url(#ah)"/>
+        <path d="M1040,222 V298 H280 V224" stroke-dasharray="3 4" marker-end="url(#ah)"/>
+        <text class="lbl" x="745" y="255">∇ update D: push D(x)→1, D(G(z))→0</text>
+        <text class="lbl" x="600" y="292">∇ update G (through D): push D(G(z))→1</text>
+      </svg>
+      <button class="node" data-k="noise" style="left:0;top:70px;width:150px;height:150px" aria-expanded="false"><span class="t">Random noise z</span><canvas id="gnNoise" width="128" height="80" style="width:128px;height:80px"></canvas><span class="s">z ~ N(0, I), 2-D</span></button>
+      <button class="node g" data-k="G" style="left:195px;top:70px;width:170px;height:150px" aria-expanded="true"><span class="t">Generator G</span><canvas id="gnG" width="148" height="80" style="width:148px;height:80px"></canvas><span class="s">MLP 2→32→32→2</span></button>
+      <button class="node g" data-k="fake" style="left:410px;top:10px;width:150px;height:125px" aria-expanded="false"><span class="t">Fake samples G(z)</span><canvas id="gnFake" width="128" height="64" style="width:128px;height:64px"></canvas></button>
+      <button class="node r" data-k="real" style="left:410px;top:160px;width:150px;height:125px" aria-expanded="false"><span class="t">Real samples x</span><canvas id="gnReal" width="128" height="64" style="width:128px;height:64px"></canvas></button>
+      <button class="node d" data-k="D" style="left:605px;top:70px;width:170px;height:150px" aria-expanded="false"><span class="t">Discriminator D</span><canvas id="gnD" width="148" height="80" style="width:148px;height:80px"></canvas><span class="s">MLP 2→48→48→1, sigmoid</span></button>
+      <button class="node d" data-k="pred" style="left:820px;top:70px;width:130px;height:150px" aria-expanded="false"><span class="t">Prediction</span><canvas id="gnPred" width="108" height="80" style="width:108px;height:80px"></canvas><span class="s">P(real) per sample</span></button>
+      <button class="node" data-k="loss" style="left:990px;top:70px;width:130px;height:150px" aria-expanded="false"><span class="t">Losses</span><canvas id="gnLoss" width="108" height="80" style="width:108px;height:80px"></canvas><span class="s" id="gnLossTxt">L_D – · L_G –</span></button>
+    </div></div>
+  </div>
+
+  <div class="work">
+    <div class="card datacard">
+      <canvas id="ganCanvas" width="520" height="520" aria-label="Data space: real points, generated points and the discriminator's decision map"></canvas>
+      <div class="legend"><span><i style="background:var(--real)"></i>real data</span><span><i style="background:var(--gen)"></i>generated G(z)</span><span><i style="background:linear-gradient(90deg,#c46d12,#f6f2ea,#0f857a);border-radius:2px;width:26px"></i>D says fake → real</span></div>
+      <div class="controls" style="margin:10px 0 0;border:0;padding:4px 0;background:transparent;justify-content:center">
+        <label class="chk"><input type="checkbox" id="ganShowD" checked> Discriminator map</label>
+        <label class="chk"><input type="checkbox" id="ganShowGrad" checked> Generator gradients</label>
+        <label class="chk"><input type="checkbox" id="ganShowMan"> Noise-to-data mapping</label>
+        <label class="chk"><input type="checkbox" id="ganShowReal" checked> Real points</label>
+      </div>
+      <p class="note" id="ganDsNote" style="text-align:center;max-width:60ch"></p>
+    </div>
+    <div class="side">
+      <div class="card detail" id="ganDetail" aria-live="polite"></div>
+      <div class="card">
+        <h4>Training curves</h4>
+        <canvas id="lossCanvas" width="340" height="120"></canvas>
+        <div class="stats">
+          <span class="pill d">L_D <b id="sLD">–</b></span><span class="pill g">L_G <b id="sLG">–</b></span>
+          <span class="pill r">D(x) <b id="sDr">–</b></span><span class="pill g">D(G(z)) <b id="sDf">–</b></span>
+        </div>
+        <p class="note">At the theoretical equilibrium D outputs 0.5 everywhere, so L_D → 2·ln 2 ≈ 1.386 and L_G → ln 2 ≈ 0.693 (dashed lines).</p>
+      </div>
+    </div>
+  </div>
+
+  <article class="explain">
+    <h3>What is a GAN?</h3>
+    <p>A Generative Adversarial Network (Goodfellow et al., 2014) learns to create new data by setting two neural networks against each other. The <b style="color:var(--gen)">generator G</b> takes a vector of random numbers <span class="mono">z</span> and turns it into a sample, such as a point, an image or a sound. The <b style="color:var(--dis)">discriminator D</b> looks at a sample and outputs the probability that it came from the real training data rather than from G.</p>
+    <p>The original paper describes the pair as a team of counterfeiters and the police. The counterfeiters (G) try to print money that passes inspection; the police (D) try to catch fakes. Each side improves because the other one does. Training ends, in theory, when the fakes are so good that the police can only guess.</p>
+
+    <h4>The minimax objective</h4>
+    <p>Both networks optimise one value function. D tries to make it large; G tries to make it small:</p>
+    <div class="eq">min<sub>G</sub> max<sub>D</sub> V(D,G) = 𝔼<sub>x~p<sub>data</sub></sub>[log D(x)] + 𝔼<sub>z~p<sub>z</sub></sub>[log(1 − D(G(z)))]</div>
+    <p>For a fixed generator, the best possible discriminator is <span class="mono">D*(x) = p<sub>data</sub>(x) / (p<sub>data</sub>(x) + p<sub>g</sub>(x))</span>. Plugging it back in shows that G is then minimising the Jensen–Shannon divergence between the real distribution and its own. The global optimum is reached when <span class="mono">p<sub>g</sub> = p<sub>data</sub></span>, where D outputs ½ for every input. The dashed lines in the training-curve chart mark the loss values at that point.</p>
+    <p>In practice G is trained with the <i>non-saturating</i> loss <span class="mono">−log D(G(z))</span> instead of <span class="mono">log(1 − D(G(z)))</span>. Early in training D rejects fakes easily, and the original term then gives almost no gradient; the non-saturating version gives strong gradients exactly when G is doing badly. This page uses it.</p>
+
+    <h4>One training iteration</h4>
+    <ol>
+      <li>Sample a batch of real points and a batch of noise vectors; run the noise through G to get fakes.</li>
+      <li><b>Update D</b> (repeated k times): raise D(x) on real points and lower D(G(z)) on fakes, using binary cross-entropy.</li>
+      <li><b>Update G</b>: back-propagate <span class="mono">−log D(G(z))</span> through the frozen discriminator into G's weights, so the fakes move toward regions D thinks are real.</li>
+    </ol>
+    <p>Here both networks are small multilayer perceptrons trained with Adam (β<sub>1</sub> = 0.5) on batches of 96 points. Real image GANs follow the same loop with convolutional networks and millions of parameters.</p>
+
+    <h4>How to read the visualization</h4>
+    <ul>
+      <li><b>Discriminator map.</b> The background colour is D's output at every location: teal where D believes points are real, amber where it believes they are fake. A well-trained D draws teal over the data and amber over places G has wrongly put its points.</li>
+      <li><b>Generator gradients.</b> Each violet line shows the direction in which G's loss pushes that fake point. The arrows point uphill on the discriminator map, toward the teal regions.</li>
+      <li><b>Noise-to-data mapping.</b> G is a function from the noise plane to the data plane. Turning this on draws a regular grid in z-space after it has been warped by G, which shows how G folds and stretches the noise to cover the data.</li>
+      <li><b>Prediction box.</b> The average D(x) on real data and D(G(z)) on fakes. Both drift toward 0.5 as G improves.</li>
+    </ul>
+
+    <h4>Why GANs are hard to train</h4>
+    <ul>
+      <li><b>Mode collapse.</b> G may find a few outputs that fool D and produce only those, ignoring the rest of the data. Try the <i>Ring of 8 Gaussians</i> or <i>5×5 grid</i> examples and watch whether every mode gets covered.</li>
+      <li><b>Oscillation.</b> The two players chase each other instead of settling. You can see the fakes swing from mode to mode while the losses wobble.</li>
+      <li><b>Vanishing gradients.</b> If D becomes too confident, G receives little useful signal. Raise <i>D steps per G step</i> to see a stronger discriminator, or raise the learning rate to see instability.</li>
+    </ul>
+    <p>Many later methods target these problems, including the Wasserstein GAN loss (Arjovsky et al., 2017), gradient penalties, spectral normalization (Miyato et al., 2018) and careful architectures such as DCGAN (Radford et al., 2015) and StyleGAN (Karras et al., 2019).</p>
+
+    <h4>From points to pictures</h4>
+    <ul class="timeline">
+      <li><b>2014</b>GAN: fully connected networks generating MNIST digits and small faces.</li>
+      <li><b>2015</b>DCGAN: convolutional generator and discriminator; stable training on 64×64 images.</li>
+      <li><b>2017</b>WGAN, Progressive GAN: more stable losses and progressive growth to 1024×1024.</li>
+      <li><b>2019</b>StyleGAN: style-based generator with controllable, smooth latent space.</li>
+      <li><b>2021→</b>Diffusion models overtake GANs on most image benchmarks, but GANs remain the fastest single-pass generators and are still used for super-resolution, distillation and real-time synthesis.</li>
+    </ul>
+    <p>The two tabs above show what happens when we give the generator extra information: an input image (Pix2Pix) or a sentence (text-to-image GANs).</p>
+  </article>
+</div></section>
+<!-- ===================== PIX2PIX VIEW ===================== -->
+<section class="view" id="view-pix2pix" role="tabpanel" aria-labelledby="tab-pix2pix"><div class="wrap">
+  <div class="lede"><h2>Conditional GAN: Pix2Pix</h2><p>Pix2Pix translates one kind of image into another, such as labels into photos or edges into products. The generator sees an input image; the discriminator judges whether each patch of an (input, output) pair looks real.</p></div>
+
+  <div class="controls" role="group" aria-label="Pix2Pix controls">
+    <div class="ctl"><label for="pixTask">Example</label><select id="pixTask"></select></div>
+    <button class="btn" id="pixNew" type="button">⟳ New input</button>
+    <div class="ctl"><span>Objective</span><div class="seg" id="pixObj"><button type="button" data-v="L1">L1 only</button><button type="button" data-v="cGAN">cGAN only</button><button type="button" data-v="L1+cGAN" aria-pressed="true">L1 + cGAN</button></div></div>
+    <div class="ctl"><span>Generator</span><div class="seg" id="pixArch"><button type="button" data-v="UNet" aria-pressed="true">U-Net</button><button type="button" data-v="ED">Encoder-decoder</button></div></div>
+    <label class="chk"><input type="checkbox" id="pixPatch"> PatchGAN overlay</label>
+  </div>
+
+  <div class="flowbox">
+    <div class="flowhead"><h3>Architecture: generator and PatchGAN discriminator</h3><span>Click any box for details.</span></div>
+    <div class="flowscroll"><div class="flow" style="height:385px">
+      <svg class="arrows" viewBox="0 0 1120 385" width="1120" height="385" aria-hidden="true">
+        <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+        <path class="live" d="M150,150 H195" marker-end="url(#ah2)"/>
+        <path class="live" d="M385,150 C408,150 408,85 430,85" marker-end="url(#ah2)"/>
+        <path class="live" d="M580,85 C602,85 602,140 625,140" marker-end="url(#ah2)"/>
+        <path class="live" d="M580,262 C602,262 602,210 625,210" marker-end="url(#ah2)"/>
+        <path class="live" d="M75,235 V358 H700 V262" marker-end="url(#ah2)"/>
+        <path class="live" d="M795,175 H840" marker-end="url(#ah2)"/>
+        <path class="live" d="M970,175 H1010" marker-end="url(#ah2)"/>
+        <path d="M505,345 V374 H1065 V262" stroke-dasharray="3 4" marker-end="url(#ah2)"/>
+        <text class="lbl" x="170" y="351">x is also given to D</text>
+        <text class="lbl" x="820" y="368">y used by the L1 term</text>
+      </svg>
+      <button class="node" data-k="x" style="left:0;top:65px;width:150px;height:170px" aria-expanded="false"><span class="t">Input x</span><canvas id="pnX" width="128" height="128" style="width:128px;height:128px"></canvas><span class="s" id="pnXs">labels</span></button>
+      <button class="node g" data-k="G" style="left:195px;top:65px;width:190px;height:170px" aria-expanded="true"><span class="t">Generator: U-Net</span><svg id="unetMini" width="168" height="112" viewBox="0 0 168 112" aria-hidden="true"></svg><span class="s">256×256 → 1×1 → 256×256</span></button>
+      <button class="node g" data-k="out" style="left:430px;top:0;width:150px;height:170px" aria-expanded="false"><span class="t">Output G(x)</span><canvas id="pnOut" width="128" height="128" style="width:128px;height:128px"></canvas><span class="s" id="pnOuts">epoch 200</span></button>
+      <button class="node r" data-k="y" style="left:430px;top:178px;width:150px;height:167px" aria-expanded="false"><span class="t">Ground truth y</span><canvas id="pnY" width="128" height="128" style="width:128px;height:128px"></canvas></button>
+      <button class="node d" data-k="D" style="left:625px;top:90px;width:170px;height:170px" aria-expanded="false"><span class="t">PatchGAN discriminator</span><svg id="patchMini" width="148" height="96" viewBox="0 0 148 96" aria-hidden="true"></svg><span class="s">input: concat(x, ·), 6 channels</span></button>
+      <button class="node d" data-k="map" style="left:840px;top:90px;width:130px;height:170px" aria-expanded="false"><span class="t">Real/fake map</span><canvas id="pnMap" width="108" height="108" style="width:108px;height:108px;image-rendering:pixelated"></canvas><span class="s">one score per patch</span></button>
+      <button class="node" data-k="loss" style="left:1010px;top:90px;width:110px;height:170px" aria-expanded="false"><span class="t">Loss</span><span class="s" style="font-size:.74rem;line-height:1.5;color:var(--ink)">L<sub>cGAN</sub>(G,D)<br>+ λ·L<sub>1</sub>(G)<br><br>λ = 100</span><span class="s" id="pnLoss">mean D: –</span></button>
+    </div></div>
+  </div>
+
+  <div class="work">
+    <div class="card">
+      <div class="trip">
+        <div class="fig"><div class="cap"><b>Input x</b><span id="pcapX"></span></div><div class="imgbox"><canvas id="pX" width="128" height="128"></canvas></div></div>
+        <div class="fig"><div class="cap"><b>Generated G(x)</b><span id="pcapG"></span></div><div class="imgbox"><canvas id="pG" width="128" height="128"></canvas><canvas class="overlay" id="pOv" width="8" height="8" hidden></canvas></div></div>
+        <div class="fig"><div class="cap"><b>Ground truth y</b><span id="pcapY"></span></div><div class="imgbox"><canvas id="pY" width="128" height="128"></canvas></div></div>
+      </div>
+      <div class="epochbar"><button class="btn" id="pixPlay" type="button">▶ Train</button><label for="pixEpoch">Epoch</label><input type="range" id="pixEpoch" min="0" max="200" value="200"><output id="pixEpochOut" class="mono">200</output></div>
+      <div class="stats"><span class="pill d">PatchGAN: <b id="pixReal">–</b> of patches judged real</span><span class="pill" id="pixDs">dataset</span></div>
+      <h4 style="margin-top:14px;font-family:var(--font-display)">Compare objectives at epoch 200</h4>
+      <div class="lossrow" id="pixLossRow">
+        <button type="button" data-v="L1"><canvas width="128" height="128"></canvas>L1 only: blurry</button>
+        <button type="button" data-v="cGAN"><canvas width="128" height="128"></canvas>cGAN only: sharp, artifacts</button>
+        <button type="button" data-v="L1+cGAN" aria-pressed="true"><canvas width="128" height="128"></canvas>L1 + cGAN</button>
+      </div>
+      <p class="note" style="margin-top:10px">Images in this tab are procedurally drawn illustrations that reproduce the typical behaviour reported in the Pix2Pix paper (blur from L1, artifacts from cGAN alone, misalignment without skip connections). They are not outputs of a trained network.</p>
+    </div>
+    <div class="side">
+      <div class="card detail" id="pixDetail" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <article class="explain">
+    <h3>From GAN to conditional GAN</h3>
+    <p>A plain GAN generates samples from noise alone, so you cannot choose what it makes. A <b>conditional GAN</b> (Mirza &amp; Osindero, 2014) gives both networks an extra input <span class="mono">c</span>, such as a class label. G learns <span class="mono">G(z, c)</span>, and D judges whether a sample is real <i>and</i> matches <span class="mono">c</span>.</p>
+    <p><b>Pix2Pix</b> (Isola, Zhu, Zhou &amp; Efros, CVPR 2017) makes the condition a whole image. Given a training set of aligned pairs (x, y), for example a label map and the photo it was drawn from, it learns to map any new x to a plausible y. The same code, without task-specific changes, handles labels→photo, edges→photo, map↔aerial, day→night, colorization and more. The authors framed this as "image-to-image translation", by analogy with translating sentences between languages.</p>
+
+    <h4>The objective: why L1 + cGAN</h4>
+    <div class="eq">L<sub>cGAN</sub>(G,D) = 𝔼<sub>x,y</sub>[log D(x,y)] + 𝔼<sub>x,z</sub>[log(1 − D(x, G(x,z)))]</div>
+    <div class="eq">L<sub>L1</sub>(G) = 𝔼<sub>x,y,z</sub>[ ‖y − G(x,z)‖<sub>1</sub> ] &nbsp;&nbsp;&nbsp; G* = arg min<sub>G</sub> max<sub>D</sub> L<sub>cGAN</sub>(G,D) + λ·L<sub>L1</sub>(G), &nbsp;λ = 100</div>
+    <ul>
+      <li><b>L1 alone</b> gets the overall layout and colours right but is blurry. When several outputs are plausible (a car could be red or blue), the per-pixel loss is minimised by averaging them, which gives a grey, smeared result.</li>
+      <li><b>cGAN alone</b> produces sharp, realistic textures, because blur is easy for D to spot, but it can drift away from the input and add artifacts.</li>
+      <li><b>Both together</b>: L1 anchors low frequencies (what goes where), the adversarial term supplies high-frequency realism. Use the three buttons under the triptych to compare.</li>
+    </ul>
+    <p>The paper measured this on Cityscapes labels→photo by running a pretrained segmentation network (FCN) on the generated photos. More accurate segmentation means the photos contain more recognisable objects:</p>
+    <table><thead><tr><th>Loss</th><th>Per-pixel acc.</th><th>Per-class acc.</th><th>Class IoU</th></tr></thead>
+      <tbody><tr><td>L1</td><td>0.42</td><td>0.15</td><td>0.11</td></tr><tr><td>cGAN</td><td>0.57</td><td>0.22</td><td>0.16</td></tr><tr><td>L1 + cGAN</td><td>0.66</td><td>0.23</td><td>0.17</td></tr><tr><td>Ground-truth photos</td><td>0.80</td><td>0.26</td><td>0.21</td></tr></tbody></table>
+
+    <h4>Generator: U-Net with skip connections</h4>
+    <p>The generator is an encoder-decoder. The encoder halves the resolution at each of eight layers (C64-C128-C256-C512-C512-C512-C512-C512, where Ck is a 4×4 convolution with k filters, BatchNorm and LeakyReLU) down to a 1×1 bottleneck; the decoder mirrors it back to 256×256. In many translation tasks input and output share low-level structure, for example edges sit in the same place. <b>Skip connections</b> copy each encoder layer's features directly to the matching decoder layer so this information does not have to squeeze through the bottleneck. Switch the generator to <i>Encoder-decoder</i> to see the typical effect of removing them: blurrier output and shapes that no longer line up with the input.</p>
+    <p>Pix2Pix has no explicit noise vector. The authors found that the generator learned to ignore a Gaussian z, so they inject randomness through dropout, applied at both training and test time. The outputs are therefore only slightly stochastic.</p>
+
+    <h4>Discriminator: PatchGAN</h4>
+    <p>Because L1 already handles the low frequencies, D only needs to judge local structure. The <b>PatchGAN</b> discriminator is a small fully convolutional network whose every output unit sees a 70×70 patch of the (input, output) pair. For a 256×256 image it produces a 30×30 grid of real/fake scores, which are averaged into the loss. This treats the image as a Markov random field: pixels farther apart than a patch are assumed independent. The result acts like a learned texture or style loss, has fewer parameters than a full-image discriminator, and runs on images of any size. Tick <i>PatchGAN overlay</i> to see per-patch judgements (shown on an 8×8 grid here for readability): teal patches pass as real, amber patches are caught.</p>
+
+    <h4>Training recipe</h4>
+    <p>G and D are updated alternately with Adam (learning rate 0.0002, β<sub>1</sub> = 0.5). D's loss is halved to slow it down relative to G. Instead of minimising log(1 − D(x, G(x))), G maximises log D(x, G(x)), the same non-saturating trick as in the GAN tab. Batch sizes are small (often 1), and small datasets such as CMP Facades (400 training pairs) train in about 200 epochs. Drag the <i>Epoch</i> slider or press <i>Train</i> to watch an illustrative run go from noise to blurry layout to sharp detail.</p>
+
+    <h4>The ten examples</h4>
+    <table><thead><tr><th>#</th><th>Task</th><th>Dataset used in the paper or its project page</th></tr></thead><tbody id="pixTaskTable"></tbody></table>
+
+    <h4>Limitations and successors</h4>
+    <ul>
+      <li><b>Needs paired data.</b> Every training input needs its aligned target. CycleGAN (Zhu et al., 2017) removes this requirement with a cycle-consistency loss.</li>
+      <li><b>Resolution.</b> pix2pixHD (Wang et al., 2018) uses multi-scale generators and discriminators to reach 2048×1024.</li>
+      <li><b>Label layouts.</b> SPADE / GauGAN (Park et al., 2019) feeds the label map into every normalisation layer, keeping semantic information from washing out.</li>
+      <li><b>Today</b>, diffusion-based models with image conditions (for example ControlNet) do many of the same jobs, but Pix2Pix's U-Net + PatchGAN recipe still appears inside many modern systems.</li>
+    </ul>
+  </article>
+</div></section>
+<!-- ===================== TEXT-TO-IMAGE VIEW ===================== -->
+<section class="view" id="view-text2image" role="tabpanel" aria-labelledby="tab-text2image"><div class="wrap">
+  <div class="lede"><h2>Text-to-Image GAN</h2><p>Here the condition is a sentence. A text encoder turns the description into vectors, and a stack of generators paints the image from coarse to fine. Pick a prompt and step through the stages.</p></div>
+
+  <div class="controls" role="group" aria-label="Text-to-image controls">
+    <div class="ctl"><label for="tPrompt">Prompt</label><select id="tPrompt"></select></div>
+    <div class="ctl"><span>Model</span><div class="seg" id="tModel"><button type="button" data-v="ganint">GAN-INT-CLS ’16</button><button type="button" data-v="stack">StackGAN ’17</button><button type="button" data-v="attn" aria-pressed="true">AttnGAN ’18</button></div></div>
+    <button class="btn" id="tSeed" type="button">🎲 New noise z</button>
+    <div class="ctl"><label for="tInterp">Interpolate text toward next prompt</label><input type="range" id="tInterp" min="0" max="100" value="0"><output id="tInterpOut">0%</output></div>
+  </div>
+
+  <div class="flowbox">
+    <div class="flowhead"><h3>Architecture: from words to pixels</h3><span>Click any box for details. Stage boxes show each generator's output.</span></div>
+    <div class="flowscroll"><div class="flow" style="height:265px">
+      <svg class="arrows" viewBox="0 0 1120 265" width="1120" height="265" aria-hidden="true">
+        <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+        <path class="live" d="M170,140 H210" marker-end="url(#ah3)"/>
+        <path class="live" d="M360,120 C380,120 380,80 400,80" marker-end="url(#ah3)"/>
+        <path class="live" d="M540,80 C560,80 560,135 580,135" marker-end="url(#ah3)"/>
+        <path class="live" d="M540,205 C560,205 560,160 580,160" marker-end="url(#ah3)"/>
+        <path class="live" d="M700,148 H720" marker-end="url(#ah3)"/>
+        <path class="live" d="M840,148 H860" marker-end="url(#ah3)"/>
+        <path class="live" d="M980,148 H1000" marker-end="url(#ah3)"/>
+        <path id="tWordArrow" d="M300,60 C300,6 780,6 780,58" stroke-dasharray="3 4" marker-end="url(#ah3)"/>
+        <path id="tWordArrow2" d="M780,6 C900,6 920,20 920,58" stroke-dasharray="3 4" marker-end="url(#ah3)"/>
+        <text class="lbl" x="470" y="16" id="tWordLbl">word features → attention (AttnGAN)</text>
+      </svg>
+      <button class="node" data-k="prompt" style="left:0;top:60px;width:170px;height:160px" aria-expanded="false"><span class="t">Text prompt</span><span id="tnPrompt" style="font-size:.8rem;line-height:1.35;overflow:hidden">–</span></button>
+      <button class="node" data-k="enc" style="left:210px;top:60px;width:150px;height:160px" aria-expanded="false"><span class="t">Text encoder</span><span class="s">sentence vector φ(t)</span><div class="vec" id="tnSent"></div><span class="s">+ one vector per word</span><div class="vec" id="tnWords" style="height:14px"></div></button>
+      <button class="node" data-k="ca" style="left:400px;top:30px;width:140px;height:110px" aria-expanded="false"><span class="t">Conditioning augmentation</span><div class="vec mu" id="tnCA"></div><span class="s">c ~ N(μ(φ), σ(φ))</span></button>
+      <button class="node" data-k="z" style="left:400px;top:160px;width:140px;height:90px" aria-expanded="false"><span class="t">Noise z</span><div class="vec z" id="tnZ"></div><span class="s">z ~ N(0, I)</span></button>
+      <button class="node g" data-k="s1" style="left:580px;top:60px;width:120px;height:178px" aria-expanded="true"><span class="t">Stage I</span><canvas id="tnS1" width="64" height="64" style="width:98px;height:98px"></canvas><span class="s">64×64: layout, colours</span></button>
+      <button class="node g" data-k="s2" style="left:720px;top:60px;width:120px;height:178px" aria-expanded="false"><span class="t">Stage II</span><canvas id="tnS2" width="128" height="128" style="width:98px;height:98px"></canvas><span class="s" id="tnS2s">128×128</span></button>
+      <button class="node g" data-k="s3" style="left:860px;top:60px;width:120px;height:178px" aria-expanded="false"><span class="t">Stage III</span><canvas id="tnS3" width="128" height="128" style="width:98px;height:98px"></canvas><span class="s" id="tnS3s">256×256: details</span></button>
+      <button class="node d" data-k="D" style="left:1000px;top:70px;width:120px;height:160px" aria-expanded="false"><span class="t">Matching-aware discriminator</span><span class="s">real? and does it match the text?</span><span class="s" style="color:var(--dis)">(training only)</span></button>
+    </div></div>
+  </div>
+
+  <div class="t2iwork">
+    <div class="card">
+      <div class="genrow">
+        <div class="fig">
+          <div class="cap"><b>Generated image</b><span id="tCap">AttnGAN · stage III · 256×256</span></div>
+          <div class="imgbox"><canvas id="tMain" width="256" height="256"></canvas><canvas class="overlay" id="tAttn" width="17" height="17" hidden style="image-rendering:auto;opacity:.6"></canvas></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div><div class="cap note">Prompt tokens. <span id="tTokHint">Click a word to see where AttnGAN attends.</span></div><div class="tokens" id="tTokens"></div></div>
+          <div class="note">Generator stages (like timesteps in a diffusion model, but each stage is a separate network and runs once):</div>
+          <div class="stagestrip" id="tStages">
+            <button type="button" data-i="0"><canvas width="64" height="64"></canvas>64×64</button>
+            <button type="button" data-i="1"><canvas width="128" height="128"></canvas>128×128</button>
+            <button type="button" data-i="2" aria-pressed="true"><canvas width="128" height="128"></canvas>256×256</button>
+          </div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:12px">The pictures in this tab are drawn procedurally from the attributes in each prompt to illustrate how these models behave (blurry 64×64 first stages, refinement in later stages, word-level attention). They are not outputs of the actual networks.</p>
+    </div>
+    <div class="side">
+      <div class="card detail" id="tDetail" aria-live="polite"></div>
+      <div class="card">
+        <h4>Matching-aware discriminator</h4>
+        <p style="font-size:.86rem">During training D sees three kinds of pairs, so it learns to reject an image that looks real but does not match the sentence.</p>
+        <div class="match" id="tMatch">
+          <figure><canvas width="96" height="96"></canvas><span>real image + its own text</span><span class="v ok">→ real</span></figure>
+          <figure><canvas width="96" height="96"></canvas><span>real image + wrong text</span><span class="v no">→ fake</span></figure>
+          <figure><canvas width="96" height="96"></canvas><span>generated image + text</span><span class="v no">→ fake</span></figure>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <article class="explain">
+    <h3>Generating images from sentences</h3>
+    <p>Text-to-image synthesis asks a model to draw a picture that matches a description such as <i>"a small yellow bird with black wings"</i>. It is much harder than Pix2Pix: the input is short and abstract, and many very different images fit the same sentence. Between 2016 and 2021 GANs were the leading approach. Most of this work used three benchmarks: <b>CUB-200-2011</b> birds and <b>Oxford-102</b> flowers, each image paired with ten human-written captions, and later the far more varied <b>MS-COCO</b>. The ten prompts here are written in the style of the CUB and Oxford-102 captions.</p>
+
+    <h4>Step 1: encode the text</h4>
+    <p>A text encoder maps the sentence to a <b>sentence embedding</b> φ(t), a vector of a few hundred numbers. Reed et al. trained a character-level CNN-RNN so that embeddings of matching images and captions are close together. AttnGAN uses a bidirectional LSTM that also outputs one <b>feature vector per word</b>, which later stages use for attention.</p>
+
+    <h4>Step 2: condition the generator (GAN-INT-CLS, 2016)</h4>
+    <p>Reed et al. (ICML 2016) were the first to make a GAN draw from captions. The sentence embedding is compressed and concatenated with the noise z, then a DCGAN-style generator upsamples it to a 64×64 image. Two ideas made it work:</p>
+    <ul>
+      <li><b>Matching-aware discriminator (GAN-CLS).</b> D sees real images with matching text (real), real images with mismatched text (fake), and generated images with their text (fake). This teaches D to check both realism and agreement with the sentence. The panel at the right shows the three cases.</li>
+      <li><b>Manifold interpolation (GAN-INT).</b> Embeddings of two captions are averaged to create extra, unlabelled conditions. Because text embeddings of similar sentences lie close together, G learns to fill the space between them smoothly. Use the <i>Interpolate</i> slider to walk from one prompt's embedding to the next.</li>
+    </ul>
+    <p>Results matched colours and rough shapes, but at 64×64 they lacked detail and object parts were often malformed.</p>
+
+    <h4>Step 3: generate in stages (StackGAN, 2017)</h4>
+    <p>StackGAN (Zhang et al., ICCV 2017) splits the task, just as a painter sketches before adding detail. <b>Stage I</b> draws a 64×64 image with the basic shape and colours. <b>Stage II</b> takes that image and the text again, corrects defects and adds detail at 256×256. StackGAN also introduced <b>Conditioning Augmentation</b>: rather than using φ(t) directly, it samples the condition from a Gaussian <span class="mono">c ~ N(μ(φ), Σ(φ))</span> with a KL penalty toward N(0, I). This smooths the conditioning space and adds variety when only a few captions exist per image. On CUB, the Inception Score rose from 2.88 (GAN-INT-CLS) to 3.70.</p>
+
+    <h4>Step 4: attend to words (AttnGAN, 2018)</h4>
+    <p>A single sentence vector blurs the meaning of individual words. AttnGAN (Xu et al., CVPR 2018) adds <b>word-level attention</b> to its 128×128 and 256×256 stages: for every image region, the generator looks up the most relevant words and uses their features to refine that region. Click a token above the stage strip to see an attention map of the kind AttnGAN visualised (on a coarse grid, as in the paper). AttnGAN also trains a <b>DAMSM</b> loss, a pretrained image-text matching model that rewards images whose sub-regions agree with specific words.</p>
+    <div class="eq">image stages: h₀ = F₀(z, c) → x₀ (64²) &nbsp;·&nbsp; h₁ = F₁(h₀, Attn(e, h₀)) → x₁ (128²) &nbsp;·&nbsp; h₂ = F₂(h₁, Attn(e, h₁)) → x₂ (256²)</div>
+
+    <h4>After AttnGAN</h4>
+    <ul class="timeline">
+      <li><b>2019</b>DM-GAN adds a dynamic memory that rewrites word features based on the first-stage image; MirrorGAN regenerates the caption from the image to enforce consistency.</li>
+      <li><b>2022</b>DF-GAN returns to a single generator with deep text-image fusion blocks and a simpler matching-aware gradient penalty, beating stacked models with fewer parameters.</li>
+      <li><b>2023</b>GALIP and StyleGAN-T bring CLIP features into GANs. <b>GigaGAN</b> (Kang et al., CVPR 2023) scales a GAN to about one billion parameters trained on LAION, generates a 512px image in 0.13 s and upsamples to 4K (16 megapixels) in 3.66 s.</li>
+    </ul>
+
+    <h4>GANs vs. diffusion for text-to-image</h4>
+    <p>The diffusion models covered by Diffusion Explainer refine an image over dozens of denoising steps; a GAN generator produces the image in one forward pass (per stage). That makes GANs much faster at inference and gives them a smooth latent space for interpolation and editing. Diffusion models, in turn, train more stably, cover more of the data distribution and follow complex prompts better, which is why they became the standard after 2021.</p>
+
+    <h4>How to read the visualization</h4>
+    <ul>
+      <li><b>Model</b>: GAN-INT-CLS has one 64×64 stage; StackGAN has 64×64 then 256×256; AttnGAN has three stages and word attention.</li>
+      <li><b>Stage strip</b>: click a stage to see the image after that generator. Early stages are blurry and slightly malformed; later stages fix shape and add texture.</li>
+      <li><b>New noise z</b> keeps the text fixed and changes the random vector, which changes pose, background and framing while the described attributes stay.</li>
+      <li><b>Interpolate</b> blends this prompt's attributes with the next prompt's, mimicking interpolation between text embeddings.</li>
+    </ul>
+  </article>
+</div></section>
+</main>
+<footer><div class="wrap">
+  <h3>References and further reading</h3>
+  <ol>
+    <li>Goodfellow et al. <a href="https://arxiv.org/abs/1406.2661">Generative Adversarial Nets</a>. NeurIPS 2014.</li>
+    <li>Mirza &amp; Osindero. <a href="https://arxiv.org/abs/1411.1784">Conditional Generative Adversarial Nets</a>. 2014.</li>
+    <li>Radford, Metz &amp; Chintala. <a href="https://arxiv.org/abs/1511.06434">Unsupervised Representation Learning with Deep Convolutional GANs (DCGAN)</a>. ICLR 2016.</li>
+    <li>Arjovsky, Chintala &amp; Bottou. <a href="https://arxiv.org/abs/1701.07875">Wasserstein GAN</a>. ICML 2017.</li>
+    <li>Karras, Laine &amp; Aila. <a href="https://arxiv.org/abs/1812.04948">A Style-Based Generator Architecture for GANs</a>. CVPR 2019.</li>
+    <li>Isola, Zhu, Zhou &amp; Efros. <a href="https://arxiv.org/abs/1611.07004">Image-to-Image Translation with Conditional Adversarial Networks (Pix2Pix)</a>. CVPR 2017.</li>
+    <li>Zhu, Park, Isola &amp; Efros. <a href="https://arxiv.org/abs/1703.10593">Unpaired Image-to-Image Translation using Cycle-Consistent Adversarial Networks (CycleGAN)</a>. ICCV 2017.</li>
+    <li>Wang et al. <a href="https://arxiv.org/abs/1711.11585">High-Resolution Image Synthesis and Semantic Manipulation with Conditional GANs (pix2pixHD)</a>. CVPR 2018.</li>
+    <li>Park et al. <a href="https://arxiv.org/abs/1903.07291">Semantic Image Synthesis with Spatially-Adaptive Normalization (SPADE)</a>. CVPR 2019.</li>
+    <li>Reed et al. <a href="https://arxiv.org/abs/1605.05396">Generative Adversarial Text to Image Synthesis (GAN-INT-CLS)</a>. ICML 2016.</li>
+    <li>Zhang et al. <a href="https://arxiv.org/abs/1612.03242">StackGAN: Text to Photo-realistic Image Synthesis with Stacked GANs</a>. ICCV 2017.</li>
+    <li>Xu et al. <a href="https://arxiv.org/abs/1711.10485">AttnGAN: Fine-Grained Text to Image Generation with Attentional GANs</a>. CVPR 2018.</li>
+    <li>Zhu et al. <a href="https://arxiv.org/abs/1904.01310">DM-GAN: Dynamic Memory GANs for Text-to-Image Synthesis</a>. CVPR 2019.</li>
+    <li>Tao et al. <a href="https://arxiv.org/abs/2008.05865">DF-GAN: A Simple and Effective Baseline for Text-to-Image Synthesis</a>. CVPR 2022.</li>
+    <li>Kang et al. <a href="https://arxiv.org/abs/2303.05511">Scaling up GANs for Text-to-Image Synthesis (GigaGAN)</a>. CVPR 2023.</li>
+    <li>Kahng et al. <a href="https://arxiv.org/abs/1809.01587">GAN Lab: Understanding Complex Deep Generative Models using Interactive Visual Experimentation</a>. IEEE VIS 2018.</li>
+    <li>Lee et al. <a href="https://arxiv.org/abs/2305.03509">Diffusion Explainer: Visual Explanation for Text-to-image Stable Diffusion</a>. 2023. The layout of this page follows <a href="https://poloclub.github.io/diffusion-explainer/">Diffusion Explainer</a>.</li>
+  </ol>
+  <p>The GAN tab trains real networks in your browser. The Pix2Pix and Text-to-Image tabs use procedurally drawn illustrations of each model's typical behaviour, so they load instantly without model weights.</p>
+</div></footer>
+<script>
+// ===================== Shared utilities =====================
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gaussFn(rng){let spare=null;return function(){if(spare!==null){const s=spare;spare=null;return s;}let u=0,v=0;while(u===0)u=rng();v=rng();const r=Math.sqrt(-2*Math.log(u));spare=r*Math.sin(2*Math.PI*v);return r*Math.cos(2*Math.PI*v);};}
+const clamp=(x,a,b)=>x<a?a:x>b?b:x;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const sigmoid=x=>1/(1+Math.exp(-x));
+const softplus=x=>x>30?x:Math.log1p(Math.exp(x));
+
+// ===================== GAN: tiny MLP with manual backprop =====================
+class Dense{
+  constructor(nin,nout,rng,gain){
+    this.nin=nin;this.nout=nout;
+    const g=gaussFn(rng),s=(gain||1)*Math.sqrt(2/nin);
+    this.W=new Float64Array(nin*nout).map(()=>g()*s);
+    this.b=new Float64Array(nout);
+    this.gW=new Float64Array(nin*nout);this.gb=new Float64Array(nout);
+    this.mW=new Float64Array(nin*nout);this.vW=new Float64Array(nin*nout);
+    this.mb=new Float64Array(nout);this.vb=new Float64Array(nout);
+  }
+}
+class MLP{
+  // sizes e.g. [2,32,32,2]; hidden activation: leaky relu; output linear
+  constructor(sizes,rng){this.sizes=sizes;this.layers=[];for(let i=0;i<sizes.length-1;i++)this.layers.push(new Dense(sizes[i],sizes[i+1],rng,i===sizes.length-2?0.5:1));this.t=0;}
+  forward(X,n){ // X Float64Array n*nin ; caches activations
+    this.cache=[X];let A=X;
+    for(let li=0;li<this.layers.length;li++){
+      const L=this.layers[li],out=new Float64Array(n*L.nout),last=li===this.layers.length-1;
+      for(let s=0;s<n;s++){
+        for(let o=0;o<L.nout;o++){
+          let z=L.b[o];
+          for(let i=0;i<L.nin;i++)z+=A[s*L.nin+i]*L.W[i*L.nout+o];
+          out[s*L.nout+o]=last?z:(z>0?z:0.2*z);
+        }
+      }
+      this.cache.push(out);A=out;
+    }
+    return A;
+  }
+  backward(dOut,n,accumulate){ // returns dX ; accumulates param grads
+    let d=dOut;
+    for(let li=this.layers.length-1;li>=0;li--){
+      const L=this.layers[li],Ain=this.cache[li],Aout=this.cache[li+1],last=li===this.layers.length-1;
+      const dz=new Float64Array(n*L.nout);
+      for(let k=0;k<n*L.nout;k++)dz[k]=last?d[k]:d[k]*(Aout[k]>0?1:0.2);
+      const dIn=new Float64Array(n*L.nin);
+      for(let s=0;s<n;s++){
+        for(let o=0;o<L.nout;o++){
+          const g=dz[s*L.nout+o];if(g===0)continue;
+          if(accumulate){L.gb[o]+=g;for(let i=0;i<L.nin;i++)L.gW[i*L.nout+o]+=Ain[s*L.nin+i]*g;}
+          for(let i=0;i<L.nin;i++)dIn[s*L.nin+i]+=L.W[i*L.nout+o]*g;
+        }
+      }
+      d=dIn;
+    }
+    return d;
+  }
+  zeroGrad(){for(const L of this.layers){L.gW.fill(0);L.gb.fill(0);}}
+  adam(lr,b1,b2){
+    b1=b1||0.5;b2=b2||0.999;this.t++;const eps=1e-8,c1=1-Math.pow(b1,this.t),c2=1-Math.pow(b2,this.t);
+    for(const L of this.layers){
+      for(const [P,G,M,V] of [[L.W,L.gW,L.mW,L.vW],[L.b,L.gb,L.mb,L.vb]]){
+        for(let k=0;k<P.length;k++){M[k]=b1*M[k]+(1-b1)*G[k];V[k]=b2*V[k]+(1-b2)*G[k]*G[k];P[k]-=lr*(M[k]/c1)/(Math.sqrt(V[k]/c2)+eps);}
+      }
+    }
+  }
+}
+
+// ===================== GAN: 10 example target distributions =====================
+const GAN_DATASETS=[
+  {id:'blob',name:'1 · Single Gaussian',note:'One smooth blob. The easiest case: G only has to shift and stretch its noise.',
+    sample:(r,g)=>[0.35+g()*0.18,0.25+g()*0.12]},
+  {id:'two',name:'2 · Two Gaussians',note:'Two separated modes. G has to split its noise in two; watch for a thin "bridge" of fakes between modes.',
+    sample:(r,g)=>{const s=r()<0.5?-1:1;return[s*0.5+g()*0.09,s*0.3+g()*0.09];}},
+  {id:'ring8',name:'3 · Ring of 8 Gaussians',note:'The classic mode-collapse benchmark. G often covers a few modes, hops between them, and only slowly finds all eight.',
+    sample:(r,g)=>{const k=Math.floor(r()*8),a=k*Math.PI/4;return[0.7*Math.cos(a)+g()*0.045,0.7*Math.sin(a)+g()*0.045];}},
+  {id:'grid',name:'4 · 5×5 grid',note:'25 small modes. Hard for a tiny MLP: early on G produces a smeared cloud that the discriminator gradually carves into islands.',
+    sample:(r,g)=>{const i=Math.floor(r()*5)-2,j=Math.floor(r()*5)-2;return[i*0.33+g()*0.035,j*0.33+g()*0.035];}},
+  {id:'circle',name:'5 · Circle',note:'A one-dimensional loop in 2-D. G must bend the noise plane into a thin ring; points inside get pushed outward.',
+    sample:(r,g)=>{const a=r()*2*Math.PI,rad=0.65+g()*0.025;return[rad*Math.cos(a),rad*Math.sin(a)];}},
+  {id:'moons',name:'6 · Two moons',note:'Two interleaved crescents, a standard toy set for non-linear shapes.',
+    sample:(r,g)=>{const a=r()*Math.PI;if(r()<0.5)return[(Math.cos(a)-0.5)*0.6+g()*0.04,(Math.sin(a)-0.25)*0.6+g()*0.04];return[(1-Math.cos(a)-0.5)*0.6+g()*0.04,(0.25-Math.sin(a))*0.6-0.05+g()*0.04];}},
+  {id:'spiral',name:'7 · Spiral',note:'A long curved manifold. G learns the inner turns first; the outer arm takes longer.',
+    sample:(r,g)=>{const t=Math.sqrt(r())*3*Math.PI,rad=t/(3*Math.PI)*0.8;return[rad*Math.cos(t)+g()*0.025,rad*Math.sin(t)+g()*0.025];}},
+  {id:'sine',name:'8 · Sine wave',note:'A curve that a 2-layer generator can fit quickly. A good first run to watch D and G reach a stand-off.',
+    sample:(r,g)=>{const x=r()*1.7-0.85;return[x+g()*0.01,0.35*Math.sin(x*Math.PI*2)+g()*0.03];}},
+  {id:'checker',name:'9 · Checkerboard',note:'Uniform squares with sharp edges. GANs tend to round off the corners; the D heat-map shows the squares it still finds suspicious.',
+    sample:(r,g)=>{for(;;){const x=r()*1.6-0.8,y=r()*1.6-0.8;const i=Math.floor((x+0.8)/0.4),j=Math.floor((y+0.8)/0.4);if((i+j)%2===0)return[x,y];}}},
+  {id:'heart',name:'10 · Heart outline',note:'A closed curve with a sharp cusp. The cusp at the bottom is the last part G gets right.',
+    sample:(r,g)=>{const t=r()*2*Math.PI;const x=16*Math.pow(Math.sin(t),3),y=13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t);return[x/22+g()*0.015,y/22+0.1+g()*0.015];}},
+];
+
+class GANTrainer{
+  constructor(dsIndex,seed){this.reset(dsIndex,seed);}
+  reset(dsIndex,seed){
+    this.ds=GAN_DATASETS[dsIndex];this.seed=seed||1;
+    this.rng=mulberry32(this.seed*7919+dsIndex*31);this.g=gaussFn(this.rng);
+    this.G=new MLP([2,32,32,2],this.rng);this.D=new MLP([2,48,48,1],this.rng);
+    this.lrD=0.003;this.lrG=0.003;this.k=1;this.batch=96;this.iter=0;this.hist=[];
+    // fixed visualisation noise & real samples
+    this.vizN=300;this.vizZ=new Float64Array(this.vizN*2);for(let i=0;i<this.vizN*2;i++)this.vizZ[i]=this.g();
+    const dr=mulberry32(99+dsIndex),dg=gaussFn(dr);this.vizReal=[];for(let i=0;i<this.vizN;i++)this.vizReal.push(this.ds.sample(dr,dg));
+  }
+  sampleReal(n){const X=new Float64Array(n*2);for(let i=0;i<n;i++){const p=this.ds.sample(this.rng,this.g);X[2*i]=p[0];X[2*i+1]=p[1];}return X;}
+  sampleZ(n){const Z=new Float64Array(n*2);for(let i=0;i<n*2;i++)Z[i]=this.g();return Z;}
+  step(){
+    const n=this.batch;let lossD=0,lossG=0,dReal=0,dFake=0;
+    for(let kk=0;kk<this.k;kk++){
+      const Xr=this.sampleReal(n),Xf=this.G.forward(this.sampleZ(n),n).slice();
+      this.D.zeroGrad();
+      const or=this.D.forward(Xr,n),gr=new Float64Array(n);
+      for(let i=0;i<n;i++){const s=sigmoid(or[i]);gr[i]=(s-1)/n;lossD+=softplus(-or[i])/n;dReal+=s/n;}
+      this.D.backward(gr,n,true);
+      const of=this.D.forward(Xf,n),gf=new Float64Array(n);
+      for(let i=0;i<n;i++){const s=sigmoid(of[i]);gf[i]=s/n;lossD+=softplus(of[i])/n;dFake+=s/n;}
+      this.D.backward(gf,n,true);
+      this.D.adam(this.lrD);
+    }
+    lossD/=this.k;dReal/=this.k;dFake/=this.k;
+    // generator: non-saturating loss  -log D(G(z))
+    const Z=this.sampleZ(n);this.G.zeroGrad();
+    const Xf=this.G.forward(Z,n).slice();const o=this.D.forward(Xf,n),go=new Float64Array(n);
+    for(let i=0;i<n;i++){const s=sigmoid(o[i]);go[i]=(s-1)/n;lossG+=softplus(-o[i])/n;}
+    const dX=this.D.backward(go,n,false);
+    this.G.forward(Z,n);this.G.backward(dX,n,true);this.G.adam(this.lrG);
+    this.iter++;
+    if(this.iter%5===0){this.hist.push({it:this.iter,lossD,lossG,dReal,dFake});if(this.hist.length>400)this.hist.shift();}
+    this.last={lossD,lossG,dReal,dFake};
+  }
+  fakes(){return this.G.forward(this.vizZ,this.vizN).slice();}
+  // gradient of generator loss wrt fake positions (direction G "wants" to move them)
+  fakeGrads(F){const n=this.vizN;const o=this.D.forward(F,n),go=new Float64Array(n);for(let i=0;i<n;i++)go[i]=sigmoid(o[i])-1;return this.D.backward(go,n,false);}
+  dGrid(res){const n=res*res,X=new Float64Array(n*2);for(let j=0;j<res;j++)for(let i=0;i<res;i++){X[2*(j*res+i)]=-1+2*(i+0.5)/res;X[2*(j*res+i)+1]=1-2*(j+0.5)/res;}const o=this.D.forward(X,n);const P=new Float64Array(n);for(let k=0;k<n;k++)P[k]=sigmoid(o[k]);return P;}
+}
+if(typeof module!=='undefined')module.exports={GANTrainer,GAN_DATASETS,mulberry32,gaussFn};
+// ===================== Pix2Pix: procedural scenes (illustrative) =====================
+const PR=128; // internal resolution
+function hash2(x,y,s){let h=(x*374761393+y*668265263+s*1442695041)|0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296;}
+function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  const a=hash2(xi,yi,s),b=hash2(xi+1,yi,s),c=hash2(xi,yi+1,s),d=hash2(xi+1,yi+1,s);return lerp(lerp(a,b,u),lerp(c,d,u),v);}
+function fbm(x,y,s,o){let t=0,a=0.5,f=1;for(let i=0;i<(o||4);i++){t+=a*vnoise(x*f,y*f,s+i*17);f*=2;a*=0.5;}return t/(1-Math.pow(0.5,o||4));}
+function newImg(){return new Float32Array(PR*PR*3);}
+function hex(h){return[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];}
+
+// Label canvas: class + instance per pixel, painted with primitives
+class LabelMap{
+  constructor(){this.c=new Int16Array(PR*PR);this.inst=new Int32Array(PR*PR);this.n=1;}
+  fill(cls){this.c.fill(cls);}
+  rect(x0,y0,x1,y1,cls,inst){x0=Math.max(0,Math.floor(x0));y0=Math.max(0,Math.floor(y0));x1=Math.min(PR,Math.ceil(x1));y1=Math.min(PR,Math.ceil(y1));const id=inst||this.n++;for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){this.c[y*PR+x]=cls;this.inst[y*PR+x]=id;}return id;}
+  ellipse(cx,cy,rx,ry,cls,inst){const id=inst||this.n++;for(let y=Math.max(0,Math.floor(cy-ry));y<Math.min(PR,Math.ceil(cy+ry));y++)for(let x=Math.max(0,Math.floor(cx-rx));x<Math.min(PR,Math.ceil(cx+rx));x++){const dx=(x+0.5-cx)/rx,dy=(y+0.5-cy)/ry;if(dx*dx+dy*dy<=1){this.c[y*PR+x]=cls;this.inst[y*PR+x]=id;}}return id;}
+  poly(pts,cls,inst){const id=inst||this.n++;let y0=PR,y1=0;for(const p of pts){y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
+    for(let y=Math.max(0,Math.floor(y0));y<Math.min(PR,Math.ceil(y1));y++){const yy=y+0.5,xs=[];for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];if((a[1]<=yy&&b[1]>yy)||(b[1]<=yy&&a[1]>yy))xs.push(a[0]+(yy-a[1])/(b[1]-a[1])*(b[0]-a[0]));}xs.sort((p,q)=>p-q);
+      for(let k=0;k+1<xs.length;k+=2)for(let x=Math.max(0,Math.ceil(xs[k]-0.5));x<Math.min(PR,Math.floor(xs[k+1]+0.5));x++){this.c[y*PR+x]=cls;this.inst[y*PR+x]=id;}}return id;}
+  line(x0,y0,x1,y1,w,cls,inst){const dx=x1-x0,dy=y1-y0,L=Math.hypot(dx,dy)||1,nx=-dy/L*w/2,ny=dx/L*w/2;return this.poly([[x0+nx,y0+ny],[x1+nx,y1+ny],[x1-nx,y1-ny],[x0-nx,y0-ny]],cls,inst);}
+}
+function paintLabels(L,pal){const I=newImg();for(let k=0;k<PR*PR;k++){const c=pal[L.c[k]]||[0,0,0];I[3*k]=c[0];I[3*k+1]=c[1];I[3*k+2]=c[2];}return I;}
+function edgesOf(L,thick){const I=newImg().fill(1);for(let y=0;y<PR;y++)for(let x=0;x<PR;x++){const k=y*PR+x,i=L.inst[k];let e=false;
+  for(let d=1;d<=(thick||1)&&!e;d++){if(x+d<PR&&L.inst[k+d]!==i)e=true;if(y+d<PR&&L.inst[k+d*PR]!==i)e=true;}if(e){I[3*k]=I[3*k+1]=I[3*k+2]=0.05;}}return I;}
+function render(L,tex){const I=newImg();for(let y=0;y<PR;y++)for(let x=0;x<PR;x++){const k=y*PR+x;const c=tex(L.c[k],L.inst[k],x,y);I[3*k]=c[0];I[3*k+1]=c[1];I[3*k+2]=c[2];}return I;}
+function gray(I){const O=newImg();for(let k=0;k<PR*PR;k++){const l=0.299*I[3*k]+0.587*I[3*k+1]+0.114*I[3*k+2];O[3*k]=O[3*k+1]=O[3*k+2]=l;}return O;}
+function shade(c,f){return[c[0]*f,c[1]*f,c[2]*f];}
+function mix3(a,b,t){return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];}
+
+// ---------- street scene (Cityscapes-like) ----------
+const CS={road:0,sidewalk:1,building:2,sky:3,veg:4,car:5,person:6,pole:7,sign:8,window:9};
+const CS_PAL={0:[128,64,128],1:[244,35,232],2:[70,70,70],3:[70,130,180],4:[107,142,35],5:[0,0,142],6:[220,20,60],7:[153,153,153],8:[220,220,0],9:[70,70,70]};
+for(const k in CS_PAL)CS_PAL[k]=CS_PAL[k].map(v=>v/255);
+function streetScene(seed){const r=mulberry32(seed),L=new LabelMap();L.fill(CS.sky);const hz=52+r()*8,meta={};
+  // buildings
+  let x=0;while(x<PR){const w=14+r()*22,h=20+r()*42;const id=L.rect(x,hz-h,x+w,hz+8,CS.building);meta[id]={col:[0.55+r()*0.3,0.5+r()*0.25,0.45+r()*0.2],win:r()};
+    for(let wy=hz-h+4;wy<hz-2;wy+=7)for(let wx=x+3;wx<x+w-4;wx+=6)L.rect(wx,wy,wx+3,wy+4,CS.window,L.n++);x+=w;}
+  // sidewalks and road (perspective trapezoid)
+  L.poly([[0,hz+8],[PR,hz+8],[PR,PR],[0,PR]],CS.sidewalk);
+  L.poly([[PR*0.38,hz+8],[PR*0.62,hz+8],[PR*1.05,PR],[-PR*0.05,PR]],CS.road);
+  // trees
+  const nt=1+Math.floor(r()*3);for(let i=0;i<nt;i++){const tx=r()<0.5?8+r()*30:PR-38+r()*30,ty=hz-6+r()*8,s=10+r()*8;L.rect(tx-1,ty,tx+1,ty+s*1.4,CS.pole);L.ellipse(tx,ty,s,s*0.9,CS.veg);}
+  // poles & sign
+  const px=r()<0.5?PR*0.2:PR*0.8;L.rect(px,hz-24,px+2,hz+30,CS.pole);L.rect(px-4,hz-26,px+6,hz-19,CS.sign);
+  // cars
+  const nc=1+Math.floor(r()*3);for(let i=0;i<nc;i++){const cy=hz+20+i*16+r()*6,s=(cy-hz)/40,cx=PR*(0.3+r()*0.4);const id=L.rect(cx-14*s,cy-9*s,cx+14*s,cy,CS.car);meta[id]={col:[[0.7,0.1,0.1],[0.1,0.2,0.5],[0.85,0.85,0.85],[0.1,0.1,0.12],[0.2,0.4,0.25]][Math.floor(r()*5)]};L.rect(cx-9*s,cy-14*s,cx+9*s,cy-8*s,CS.car,id);}
+  // persons
+  const np=Math.floor(r()*3);for(let i=0;i<np;i++){const py=hz+14+r()*20,s=(py-hz)/30,pxx=r()<0.5?6+r()*20:PR-26+r()*20;L.ellipse(pxx,py-10*s,2.8*s,9*s,CS.person);L.ellipse(pxx,py-21*s,2.2*s,2.4*s,CS.person);}
+  return{L,meta,hz};}
+function streetTex(S,seed,night){const m=S.meta;return(c,id,x,y)=>{const n=fbm(x*0.15,y*0.15,seed,3),nn=hash2(x,y,seed);
+  switch(c){
+    case CS.sky:{if(night){const s=hash2(x,y,seed+5)>0.992?0.9:0;return[0.03+s,0.05+s,0.15+y/PR*0.15+s];}const t=y/S.hz;return[0.55+t*0.25,0.72+t*0.15,0.95];}
+    case CS.building:{const b=(m[id]&&m[id].col)||[0.6,0.6,0.6];const f=0.85+0.25*n;return night?shade(b,0.12*f):shade(b,f);}
+    case CS.window:{if(night){return hash2(id,1,seed)>0.45?[1,0.82,0.45]:[0.05,0.05,0.08];}return[0.25+0.3*(1-(y%7)/7),0.32+0.3*(1-(y%7)/7),0.4+0.25*(1-(y%7)/7)];}
+    case CS.road:{let g=0.32+0.12*n+0.04*nn;if(Math.abs(x-PR/2)<0.9+(y-S.hz)*0.02&&(Math.floor(y/5)%2===0))g=0.92;return night?[g*0.25,g*0.25,g*0.32]:[g,g,g*1.03];}
+    case CS.sidewalk:{const g=0.62+0.12*n-((x+y)%9===0?0.08:0);return night?[g*0.2,g*0.2,g*0.25]:[g,g*0.97,g*0.92];}
+    case CS.veg:{const g=0.25+0.35*fbm(x*0.4,y*0.4,seed+3,3);return night?[0.02,g*0.15,0.04]:[g*0.55,g*1.3,g*0.35];}
+    case CS.car:{const b=(m[id]&&m[id].col)||[0.5,0.5,0.5];const f=0.75+0.35*(1-((y%20)/20));if(night)return hash2(id,2,seed)>0.5&&(y%9<2)?[1,0.95,0.7]:shade(b,0.15);return shade(b,f);}
+    case CS.person:return night?[0.05,0.04,0.06]:[0.18+0.1*n,0.15,0.2];
+    case CS.pole:return night?[0.1,0.1,0.1]:[0.35,0.35,0.36];
+    case CS.sign:return night?[0.4,0.35,0.05]:[0.9,0.75,0.1];
+  }return[1,0,1];};}
+
+// ---------- facade (CMP Facades-like) ----------
+const FC={bg:0,wall:1,window:2,door:3,cornice:4,sill:5,balcony:6,shop:7,pillar:8};
+const FC_PAL={0:hex('#00008a'),1:hex('#0d3dff'),2:hex('#00c3ff'),3:hex('#ff8c00'),4:hex('#ff3300'),5:hex('#aaff55'),6:hex('#ffee00'),7:hex('#8a0000'),8:hex('#00ff99')};
+function facadeScene(seed){const r=mulberry32(seed),L=new LabelMap();L.fill(FC.bg);const meta={};
+  const wall=L.rect(4,10,PR-4,PR,FC.wall);meta.wall=[[0.86,0.76,0.6],[0.78,0.55,0.45],[0.9,0.86,0.78],[0.7,0.68,0.62],[0.85,0.7,0.5]][Math.floor(r()*5)];
+  L.rect(2,8,PR-2,14,FC.cornice);
+  const floors=3+Math.floor(r()*2),cols=3+Math.floor(r()*2),fh=(PR-44)/floors,cw=(PR-8)/cols;
+  for(let f=0;f<floors;f++){const y0=18+f*fh;for(let c=0;c<cols;c++){const x0=4+c*cw;const ww=cw*0.45,wh=fh*0.58;const wx=x0+(cw-ww)/2;L.rect(wx,y0+fh*0.12,wx+ww,y0+fh*0.12+wh,FC.window);L.rect(wx-2,y0+fh*0.12+wh,wx+ww+2,y0+fh*0.12+wh+2.5,FC.sill);
+    if(f===1&&r()<0.6){L.rect(wx-3,y0+fh*0.12+wh*0.62,wx+ww+3,y0+fh*0.12+wh+3,FC.balcony);}}
+    L.rect(4,y0+fh-2,PR-4,y0+fh,FC.cornice);}
+  // ground floor shop + door
+  const gy=18+floors*fh;L.rect(10,gy+4,PR*0.62,PR,FC.shop);const dx=PR*0.7;L.rect(dx,gy+3,dx+18,PR,FC.door);L.rect(4,gy,9,PR,FC.pillar);L.rect(PR-9,gy,PR-4,PR,FC.pillar);
+  return{L,meta};}
+function facadeTex(S,seed){const w=S.meta.wall;return(c,id,x,y)=>{const n=fbm(x*0.2,y*0.2,seed,4),nn=hash2(x,y,seed);
+  switch(c){case FC.bg:return[0.7+0.1*(1-y/PR),0.78,0.88];
+    case FC.wall:return shade(w,0.82+0.25*n-0.05*nn);
+    case FC.window:{const t=(y%12)/12;const refl=0.15+0.35*vnoise(x*0.2,y*0.05,seed+9);return[0.12+refl*0.7,0.16+refl*0.75,0.2+refl*0.8].map(v=>v*(0.8+0.2*t));}
+    case FC.door:return[0.35+0.1*n,0.2+0.05*n,0.1];
+    case FC.cornice:return shade([0.92,0.9,0.85],0.85+0.15*n);
+    case FC.sill:return[0.93,0.92,0.9];
+    case FC.balcony:return(x%3===0)?[0.08,0.08,0.08]:shade(w,0.7);
+    case FC.shop:{const g=0.1+0.25*vnoise(x*0.1,y*0.3,seed+4);return[g,g*1.05,g*1.15];}
+    case FC.pillar:return shade([0.85,0.83,0.78],0.8+0.2*n);}
+  return[1,0,1];};}
+
+// ---------- shoe & handbag (edges → photo) ----------
+function shoeScene(seed){const r=mulberry32(seed),L=new LabelMap();L.fill(0);const t=r()*6-3;
+  const S=(p)=>[p[0],p[1]+t*(p[0]-64)/64];
+  L.poly([[14,96],[118,96],[118,104],[110,110],[20,110],[12,104]].map(S),1); // sole
+  L.poly([[16,96],[24,64],[44,50],[62,58],[82,70],[104,78],[116,86],[116,96]].map(S),2); // upper
+  L.poly([[88,73],[104,78],[116,86],[116,96],[92,96]].map(S),3); // toe cap
+  L.poly([[16,96],[22,66],[34,58],[36,96]].map(S),4); // heel counter
+  L.poly([[44,52],[62,58],[76,66],[70,72],[48,62]].map(S),5); // tongue/lace area
+  for(let i=0;i<4;i++){const a=S([50+i*6,57+i*3]),b=S([55+i*6,64+i*3]);L.line(a[0],a[1],b[0],b[1],1.6,6);}
+  L.poly([[40,86],[60,76],[84,84],[62,82]].map(S),7); // side stripe
+  return{L,meta:{body:[[0.75,0.1,0.12],[0.12,0.18,0.4],[0.92,0.92,0.9],[0.12,0.12,0.13],[0.75,0.6,0.42]][Math.floor(r()*5)],accent:[[1,1,1],[0.95,0.75,0.1],[0.1,0.5,0.9]][Math.floor(r()*3)],gum:r()<0.4}};}
+function shoeTex(S,seed){const m=S.meta;return(c,id,x,y)=>{const n=fbm(x*0.3,y*0.3,seed,3);const sh=0.8+0.3*(1-y/PR);
+  switch(c){case 0:return[1,1,1];case 1:return m.gum?[0.75*sh,0.55*sh,0.32*sh]:[0.95*sh,0.94*sh,0.9*sh];
+    case 2:return shade(m.body,sh*(0.9+0.15*n));case 3:return shade(m.body,sh*(0.75+0.15*n));case 4:return shade(m.body,sh*0.7);
+    case 5:return shade(m.body,sh*1.05);case 6:return[0.97,0.97,0.97];case 7:return m.accent;}return[1,0,1];};}
+function bagScene(seed){const r=mulberry32(seed),L=new LabelMap();L.fill(0);const w=34+r()*8;
+  L.ellipse(64,44,26,26,1);L.ellipse(64,44,21,21,0,L.n++); // handle ring (inner punched)
+  L.rect(0,44,PR,PR,0,L.n++);
+  L.poly([[64-w,56],[64+w,56],[64+w+6,112],[64-w-6,112]],2); // body
+  L.poly([[64-w,56],[64+w,56],[64+w+1,78],[64-w-1,78]],3); // flap
+  L.rect(60,72,68,82,4); // clasp
+  if(r()<0.6)L.rect(64-w+6,88,64-6,104,5);
+  // re-draw handle top over bg
+  for(let y=16;y<44;y++)for(let x=36;x<92;x++){const d=Math.hypot(x+0.5-64,y+0.5-44);if(d<=26&&d>=21){L.c[y*PR+x]=1;L.inst[y*PR+x]=9999;}}
+  return{L,meta:{body:[[0.45,0.25,0.12],[0.08,0.08,0.09],[0.62,0.1,0.16],[0.82,0.72,0.58],[0.2,0.3,0.45]][Math.floor(r()*5)]}};}
+function bagTex(S,seed){const b=S.meta.body;return(c,id,x,y)=>{const n=fbm(x*0.5,y*0.5,seed,3),sh=0.85+0.25*(1-y/PR);
+  switch(c){case 0:return[1,1,1];case 1:return shade(b,0.7*sh);case 2:return shade(b,sh*(0.88+0.15*n));case 3:return shade(b,sh*(0.75+0.12*n));case 4:return[0.85,0.72,0.3];case 5:return shade(b,sh*0.8);}return[1,0,1];};}
+
+// ---------- aerial / map ----------
+const MP={ground:0,road:1,major:2,building:3,park:4,water:5};
+const MAP_PAL={0:hex('#f2efe9'),1:hex('#ffffff'),2:hex('#fcd669'),3:hex('#dedad3'),4:hex('#c3e6b0'),5:hex('#aad3ff')};
+function cityScene(seed){const r=mulberry32(seed),L=new LabelMap();L.fill(MP.ground);const meta={};
+  // river
+  const rx=r()*PR,amp=10+r()*14;for(let y=0;y<PR;y++){const cx=rx+amp*Math.sin(y*0.04+r()*0.01);for(let x=0;x<PR;x++)if(Math.abs(x-cx)<8){L.c[y*PR+x]=MP.water;L.inst[y*PR+x]=1;}}
+  // blocks
+  const step=26+Math.floor(r()*6);const off=Math.floor(r()*10);
+  for(let by=off-step;by<PR;by+=step)for(let bx=off-step;bx<PR;bx+=step){
+    if(r()<0.18){L.rect(bx+3,by+3,bx+step-3,by+step-3,MP.park);continue;}
+    for(let k=0;k<4;k++){const x0=bx+3+r()*(step-12),y0=by+3+r()*(step-12),w=5+r()*8,h=5+r()*8;const id=L.rect(x0,y0,Math.min(x0+w,bx+step-3),Math.min(y0+h,by+step-3),MP.building);meta[id]=r();}}
+  for(let g=off;g<PR+step;g+=step){L.rect(g-2,0,g+2,PR,MP.road);L.rect(0,g-2,PR,g+2,MP.road);}
+  const mj=off+step*(1+Math.floor(r()*2));L.rect(mj-3,0,mj+3,PR,MP.major,L.n++);
+  L.line(0,PR*r(),PR,PR*r(),5,MP.major);
+  return{L,meta};}
+function aerialTex(S,seed){return(c,id,x,y)=>{const n=fbm(x*0.25,y*0.25,seed,4),nn=hash2(x,y,seed);
+  switch(c){case MP.ground:return[0.5+0.15*n,0.5+0.12*n,0.38+0.08*n];
+    case MP.road:case MP.major:{const g=0.38+0.1*n+0.05*nn;return[g,g,g];}
+    case MP.building:{const v=S.meta[id]||0.5;const base=v<0.3?[0.62,0.32,0.25]:v<0.6?[0.6,0.6,0.6]:[0.78,0.76,0.7];return shade(base,0.85+0.15*n);}
+    case MP.park:{const t=fbm(x*0.6,y*0.6,seed+2,3);return[0.12+0.15*t,0.3+0.25*t,0.1+0.08*t];}
+    case MP.water:return[0.12+0.05*n,0.25+0.06*n,0.3+0.08*n];}return[1,0,1];};}
+function mapTex(S){return(c,id,x,y)=>MAP_PAL[c];}
+
+// ---------- landscape (colorization) ----------
+function landScene(seed){const r=mulberry32(seed),L=new LabelMap();L.fill(0);const meta={sunx:20+r()*88,hue:r()};
+  const m1=40+r()*15,m2=62+r()*10;
+  for(let x=0;x<PR;x++){const h1=m1-22*fbm(x*0.03,1,seed,4),h2=m2-14*fbm(x*0.05,5,seed+1,4);for(let y=0;y<PR;y++){const k=y*PR+x;if(y>h1){L.c[k]=1;L.inst[k]=1;}if(y>h2){L.c[k]=2;L.inst[k]=2;}if(y>88){L.c[k]=3;L.inst[k]=3;}}}
+  const nf=40+Math.floor(r()*40);for(let i=0;i<nf;i++){const fy=90+r()*36,fx=r()*PR;L.ellipse(fx,fy,1.2+(fy-90)/18,1.2+(fy-90)/18,4,L.n++);}
+  L.ellipse(meta.sunx,24,7,7,5);
+  return{L,meta};}
+function landTex(S,seed){const fl=[[0.95,0.2,0.3],[1,0.8,0.1],[0.95,0.5,0.85],[1,1,1],[0.55,0.3,0.95]];return(c,id,x,y)=>{const n=fbm(x*0.12,y*0.12,seed,4);
+  switch(c){case 0:return[0.45+y/PR*0.8,0.65+y/PR*0.5,0.98];case 1:return[0.38+0.15*n,0.38+0.12*n,0.6+0.1*n];case 2:return[0.2+0.15*n,0.45+0.2*n,0.2];
+    case 3:{const t=fbm(x*0.3,y*0.6,seed+4,3);return[0.3+0.25*t,0.55+0.2*t,0.12];}case 4:return fl[id%5];case 5:return[1,0.95,0.7];}return[1,0,1];};}
+
+// ---------- thermal-free inpainting helper ----------
+function holeOf(I,seed){const r=mulberry32(seed+77),O=I.slice();const x0=Math.floor(28+r()*40),y0=Math.floor(28+r()*36);for(let y=y0;y<y0+36;y++)for(let x=x0;x<x0+40;x++){const k=y*PR+x;O[3*k]=O[3*k+1]=O[3*k+2]=0.5;}return O;}
+
+// ---------- 10 tasks ----------
+const PIX_TASKS=[
+  {id:'labels2street',name:'1 · Labels → Street scene',ds:'Cityscapes',inLabel:'Semantic label map',outLabel:'Photo',build(seed){const S=streetScene(seed);return{A:paintLabels(S.L,CS_PAL),B:render(S.L,streetTex(S,seed)),B2:render(S.L,streetTex(S,seed+101))};}},
+  {id:'labels2facade',name:'2 · Labels → Facade',ds:'CMP Facades',inLabel:'Architectural labels',outLabel:'Photo',build(seed){const S=facadeScene(seed);const S2={L:S.L,meta:{wall:shade(S.meta.wall,0.92)}};return{A:paintLabels(S.L,FC_PAL),B:render(S.L,facadeTex(S,seed)),B2:render(S.L,facadeTex(S2,seed+7))};}},
+  {id:'edges2shoes',name:'3 · Edges → Shoe',ds:'UT Zappos50K',inLabel:'Edge map (HED)',outLabel:'Photo',build(seed){const S=shoeScene(seed);const S2={L:S.L,meta:Object.assign({},S.meta,{body:shade(S.meta.body,1.08)})};return{A:edgesOf(S.L),B:render(S.L,shoeTex(S,seed)),B2:render(S.L,shoeTex(S2,seed+5))};}},
+  {id:'edges2bags',name:'4 · Edges → Handbag',ds:'Amazon handbags',inLabel:'Edge map (HED)',outLabel:'Photo',build(seed){const S=bagScene(seed);const S2={L:S.L,meta:{body:shade(S.meta.body,1.1)}};return{A:edgesOf(S.L),B:render(S.L,bagTex(S,seed)),B2:render(S.L,bagTex(S2,seed+3))};}},
+  {id:'aerial2map',name:'5 · Aerial photo → Map',ds:'Google Maps (NYC)',inLabel:'Aerial photo',outLabel:'Map tile',build(seed){const S=cityScene(seed);return{A:render(S.L,aerialTex(S,seed)),B:render(S.L,mapTex(S)),B2:render(S.L,mapTex(S))};}},
+  {id:'map2aerial',name:'6 · Map → Aerial photo',ds:'Google Maps (NYC)',inLabel:'Map tile',outLabel:'Aerial photo',build(seed){const S=cityScene(seed);return{A:render(S.L,mapTex(S)),B:render(S.L,aerialTex(S,seed)),B2:render(S.L,aerialTex(S,seed+9))};}},
+  {id:'bw2color',name:'7 · Black & white → Color',ds:'ImageNet',inLabel:'Grayscale photo',outLabel:'Color photo',build(seed){const S=landScene(seed);const B=render(S.L,landTex(S,seed));return{A:gray(B),B,B2:render(S.L,landTex(S,seed+1))};}},
+  {id:'day2night',name:'8 · Day → Night',ds:'Transient Attributes',inLabel:'Daytime photo',outLabel:'Night photo',build(seed){const S=streetScene(seed);return{A:render(S.L,streetTex(S,seed)),B:render(S.L,streetTex(S,seed,true)),B2:render(S.L,streetTex(S,seed+3,true))};}},
+  {id:'inpaint',name:'9 · Inpainting (fill the hole)',ds:'Paris StreetView',inLabel:'Photo with missing region',outLabel:'Completed photo',build(seed){const S=facadeScene(seed);const B=render(S.L,facadeTex(S,seed));const B2=render(S.L,facadeTex(S,seed+4));return{A:holeOf(B,seed),B,B2,keepOutsideHole:true};}},
+  {id:'photo2labels',name:'10 · Photo → Labels (segmentation)',ds:'Cityscapes',inLabel:'Photo',outLabel:'Semantic label map',build(seed){const S=streetScene(seed);const B=paintLabels(S.L,CS_PAL);
+    const B2=B.slice();const r=mulberry32(seed+3);for(let i=0;i<5;i++){const cx=r()*PR,cy=50+r()*70,rad=3+r()*6,col=CS_PAL[Math.floor(r()*9)];for(let y=0;y<PR;y++)for(let x=0;x<PR;x++)if(Math.hypot(x-cx,y-cy)<rad*(0.7+0.6*vnoise(x*0.3,y*0.3,i))){const k=y*PR+x;B2[3*k]=col[0];B2[3*k+1]=col[1];B2[3*k+2]=col[2];}}
+    return{A:render(S.L,streetTex(S,seed)),B,B2,labels:true};}},
+];
+
+// ---------- image ops ----------
+function boxBlur(I,r){if(r<=0)return I.slice();let A=I.slice(),T=newImg();const R=Math.round(r);
+  for(let pass=0;pass<2;pass++){
+    for(let y=0;y<PR;y++)for(let c=0;c<3;c++){let s=0;for(let x=-R;x<=R;x++)s+=A[3*(y*PR+clamp(x,0,PR-1))+c];for(let x=0;x<PR;x++){T[3*(y*PR+x)+c]=s/(2*R+1);s+=A[3*(y*PR+clamp(x+R+1,0,PR-1))+c]-A[3*(y*PR+clamp(x-R,0,PR-1))+c];}}
+    for(let x=0;x<PR;x++)for(let c=0;c<3;c++){let s=0;for(let y=-R;y<=R;y++)s+=T[3*(clamp(y,0,PR-1)*PR+x)+c];for(let y=0;y<PR;y++){A[3*(y*PR+x)+c]=s/(2*R+1);s+=T[3*(clamp(y+R+1,0,PR-1)*PR+x)+c]-T[3*(clamp(y-R,0,PR-1)*PR+x)+c];}}
+  }return A;}
+function desat(I,t,tint){const O=newImg();for(let k=0;k<PR*PR;k++){const l=0.299*I[3*k]+0.587*I[3*k+1]+0.114*I[3*k+2];const g=tint?[l*1.06,l*0.98,l*0.86]:[l,l,l];for(let c=0;c<3;c++)O[3*k+c]=lerp(I[3*k+c],g[c],t);}return O;}
+function warp(I,amt,seed){if(amt<=0)return I.slice();const O=newImg();for(let y=0;y<PR;y++)for(let x=0;x<PR;x++){const dx=(vnoise(x*0.08,y*0.08,seed)-0.5)*amt,dy=(vnoise(x*0.08,y*0.08,seed+3)-0.5)*amt;const sx=clamp(Math.round(x+dx),0,PR-1),sy=clamp(Math.round(y+dy),0,PR-1);for(let c=0;c<3;c++)O[3*(y*PR+x)+c]=I[3*(sy*PR+sx)+c];}return O;}
+function artifacts(I,amt,seed){const O=I.slice();if(amt<=0)return O;for(let y=0;y<PR;y++)for(let x=0;x<PR;x++){const m=clamp(fbm(x*0.05,y*0.05,seed+11,2)*1.8-0.6,0,1);const p=((x%4<2)!==(y%4<2)?1:-1)*0.5+Math.sin(x*1.3+y*0.7)*0.5;const k=y*PR+x;O[3*k]+=amt*m*p*0.5;O[3*k+1]+=amt*m*(p*0.2+(vnoise(x*0.1,y*0.1,seed)-0.5));O[3*k+2]-=amt*m*p*0.4;}return O;}
+function noiseImg(seed){const O=newImg();for(let y=0;y<PR;y++)for(let x=0;x<PR;x++){const k=y*PR+x,ch=((x>>1)+(y>>1))%2;for(let c=0;c<3;c++)O[3*k+c]=0.5+0.35*(hash2(x,y,seed+c)-0.5)+0.12*ch*(c===1?-1:1);}return O;}
+function mixImg(A,B,t){const O=newImg();for(let k=0;k<O.length;k++)O[k]=lerp(A[k],B[k],t);return O;}
+function quantizeToPalette(I,pal){const cols=Object.values(pal);const O=newImg();for(let k=0;k<PR*PR;k++){let b=0,bd=1e9;for(let i=0;i<cols.length;i++){const c=cols[i];const d=(I[3*k]-c[0])**2+(I[3*k+1]-c[1])**2+(I[3*k+2]-c[2])**2;if(d<bd){bd=d;b=i;}}O[3*k]=cols[b][0];O[3*k+1]=cols[b][1];O[3*k+2]=cols[b][2];}return O;}
+
+// Simulated generator output: depends on objective, architecture and epoch
+class PixSim{
+  constructor(task,seed){this.task=task;this.seed=seed;const d=task.build(seed);Object.assign(this,d);
+    if(!this.labels&&task.id!=='aerial2map'&&task.id!=='inpaint'){const r=mulberry32(seed+55),g=[0.9+r()*0.2,0.9+r()*0.2,0.9+r()*0.2];const B2=this.B2;for(let k=0;k<B2.length;k++){const v=B2[k]*g[k%3];B2[k]=v>1?1:v;}}this.noise=noiseImg(seed);this.cache={};}
+  final(obj,arch){const key=obj+'|'+arch;if(this.cache[key])return this.cache[key];let O;const s=this.seed;
+    if(obj==='L1'){O=desat(boxBlur(this.B,3),this.labels?0.15:0.3,true);O=mixImg(O,boxBlur(this.B,1),0.25);}
+    else if(obj==='cGAN'){O=artifacts(warp(this.B2,6,s),0.55,s);}
+    else{O=artifacts(this.B2,0.03,s);}
+    if(arch==='ED'){O=warp(boxBlur(O,2),5,s+21);O=mixImg(O,desat(O,0.6,false),0.3);}
+    if(this.labels&&obj!=='L1')O=quantizeToPalette(O,CS_PAL);
+    if(this.task.id==='aerial2map'&&obj!=='L1')O=quantizeToPalette(O,MAP_PAL);
+    this.cache[key]=O;return O;}
+  output(obj,arch,epoch){const p=clamp(epoch/200,0,1);const F=this.final(obj,arch);
+    const rad=Math.round(10*Math.pow(1-p,2.2));const key='b'+obj+arch+rad;let base=this.cache[key];if(!base){base=boxBlur(F,rad);if(rad>0&&obj!=='L1')base=desat(base,0.4*(rad/10),false);this.cache[key]=base;}
+    const wn=clamp(1-p*7,0,1);let O=wn>0?mixImg(base,this.noise,wn*0.85):base;
+    if(this.keepOutsideHole){O=O.slice();for(let k=0;k<PR*PR;k++){if(!(this.A[3*k]===0.5&&this.A[3*k+1]===0.5&&this.A[3*k+2]===0.5)){O[3*k]=this.B[3*k];O[3*k+1]=this.B[3*k+1];O[3*k+2]=this.B[3*k+2];}}}
+    return O;}
+  l1(O){let s=0;for(let k=0;k<O.length;k++)s+=Math.abs(O[k]-this.B[k]);return s/O.length;}
+  // PatchGAN-style realism map: compares local high-frequency statistics with real photos
+  patchMap(O,N){N=N||8;const ps=PR/N,M=new Float32Array(N*N);const ge=(I,x,y)=>{const k=y*PR+x;let g=0;for(let c=0;c<3;c++)g+=Math.abs(I[3*(k+1)+c]-I[3*k+c])+Math.abs(I[3*(k+PR)+c]-I[3*k+c]);return g;};
+    for(let j=0;j<N;j++)for(let i=0;i<N;i++){let gO=0,gB=0,diff=0,cnt=0;for(let y=j*ps;y<(j+1)*ps&&y<PR-1;y++)for(let x=i*ps;x<(i+1)*ps&&x<PR-1;x++){gO+=ge(O,x,y);gB+=ge(this.B2,x,y);for(let c=0;c<3;c++)diff+=Math.abs(O[3*(y*PR+x)+c]-this.B2[3*(y*PR+x)+c]);cnt++;}
+      gO/=cnt;gB/=cnt;diff/=cnt*3;const rel=Math.abs(gO-gB)/(gB+0.03);M[j*N+i]=clamp(Math.exp(-(1.6*rel+7*diff)),0.02,0.98);}
+    return M;}
+}
+if(typeof module!=='undefined')module.exports={PIX_TASKS,PixSim,PR};
+// ===================== Text-to-image GAN: parametric renderer (illustrative) =====================
+const T2I_PROMPTS=[
+  {type:'bird',text:'this bird has a red crown, a short black beak and a white belly',
+    tags:{red:'crown',crown:'crown',short:'beak',black:'beak',beak:'beak',white:'belly',belly:'belly',bird:'body'},
+    a:{back:'#6b5a4a',head:'#7a6a5a',crown:'#d42a2a',throat:'#e8e2d6',breast:'#ece6dc',belly:'#f7f5f0',wing:'#5a4a3c',wingbar:null,tail:'#4a3c30',beak:'#1c1c1c',beakLen:14,eyeRing:null,patch:null,speckle:false,tailLen:0.9}},
+  {type:'bird',text:'a small yellow bird with black wings and white wing bars',
+    tags:{small:'body',yellow:'body',bird:'body',black:'wing',wings:'wing',white:'wingbar',wing:'wingbar',bars:'wingbar'},
+    a:{back:'#f2c80f',head:'#f5d016',crown:'#1a1a1a',throat:'#f7d625',breast:'#f7d625',belly:'#f9de3c',wing:'#1b1b1b',wingbar:'#f4f4f4',tail:'#1b1b1b',beak:'#e7a24a',beakLen:11,eyeRing:null,patch:null,speckle:false,tailLen:0.85}},
+  {type:'bird',text:'this bird is blue with a white breast and a long tail',
+    tags:{bird:'body',blue:'body',white:'breast',breast:'breast',long:'tail',tail:'tail'},
+    a:{back:'#2f6fd0',head:'#3a7ce0',crown:'#2a62bf',throat:'#f2f2f2',breast:'#f4f4f4',belly:'#eef0f3',wing:'#245bb0',wingbar:'#dfe9fb',tail:'#1f4f9a',beak:'#2a2a2a',beakLen:16,eyeRing:null,patch:null,speckle:false,tailLen:1.45}},
+  {type:'bird',text:'a bird with a bright orange breast, grey wings and a pointed beak',
+    tags:{bird:'body',bright:'breast',orange:'breast',breast:'breast',grey:'wing',wings:'wing',pointed:'beak',beak:'beak'},
+    a:{back:'#7b8088',head:'#5f646b',crown:'#53575d',throat:'#ef7a1e',breast:'#f2801f',belly:'#f4b37a',wing:'#8e939a',wingbar:null,tail:'#4d5156',beak:'#d8a033',beakLen:20,eyeRing:'#f2f2f2',patch:null,speckle:false,tailLen:1.0}},
+  {type:'bird',text:'this small bird has a brown body, a speckled white belly and a short tail',
+    tags:{small:'body',bird:'body',brown:'body',body:'body',speckled:'belly',white:'belly',belly:'belly',short:'tail',tail:'tail'},
+    a:{back:'#8a5a33',head:'#94633a',crown:'#7a4c2a',throat:'#f1e8da',breast:'#efe4d2',belly:'#f6f0e6',wing:'#7a4f2d',wingbar:'#c9a37c',tail:'#6b4426',beak:'#8a7a66',beakLen:12,eyeRing:null,patch:null,speckle:true,tailLen:0.6}},
+  {type:'bird',text:'a black bird with a bright red shoulder patch and a sharp black beak',
+    tags:{black:'body',bird:'body',bright:'patch',red:'patch',shoulder:'patch',patch:'patch',sharp:'beak',beak:'beak'},
+    a:{back:'#151515',head:'#181818',crown:'#141414',throat:'#1a1a1a',breast:'#1b1b1b',belly:'#1c1c1c',wing:'#121212',wingbar:'#f0d24a',tail:'#101010',beak:'#0d0d0d',beakLen:19,eyeRing:null,patch:'#e0261f',speckle:false,tailLen:1.05}},
+  {type:'flower',text:'this flower has five large pink petals with a yellow center',
+    tags:{flower:'petals',five:'petals',large:'petals',pink:'petals',petals:'petals',yellow:'center',center:'center'},
+    a:{petal:'#f27aa8',tip:'#fbc4da',center:'#f2c21b',stamen:'#f7e27a',n:5,shape:'round',layers:1,size:1.0,centerSize:0.22}},
+  {type:'flower',text:'a flower with many thin white petals and a bright yellow disc',
+    tags:{flower:'petals',many:'petals',thin:'petals',white:'petals',petals:'petals',bright:'center',yellow:'center',disc:'center'},
+    a:{petal:'#f6f6f2',tip:'#ffffff',center:'#f0b414',stamen:null,n:22,shape:'thin',layers:2,size:1.0,centerSize:0.24}},
+  {type:'flower',text:'this flower is deep purple with pointed petals and white stamens',
+    tags:{flower:'petals',deep:'petals',purple:'petals',pointed:'petals',petals:'petals',white:'stamens',stamens:'stamens'},
+    a:{petal:'#5b1f8f',tip:'#8a4cc2',center:'#2c0f45',stamen:'#f5f5f5',n:6,shape:'pointed',layers:1,size:1.05,centerSize:0.13}},
+  {type:'flower',text:'a bright orange flower with ruffled petals arranged in layers',
+    tags:{bright:'petals',orange:'petals',flower:'petals',ruffled:'petals',petals:'petals',layers:'petals'},
+    a:{petal:'#f2701d',tip:'#ffb15a',center:'#b2420c',stamen:null,n:9,shape:'ruffled',layers:3,size:1.0,centerSize:0.12}},
+];
+function hx(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function rgbs(c,f,a){f=f||1;return`rgba(${clamp(Math.round(c[0]*f),0,255)},${clamp(Math.round(c[1]*f),0,255)},${clamp(Math.round(c[2]*f),0,255)},${a===undefined?1:a})`;}
+function lerpAttrs(A,B,t){if(t<=0)return A;const O={};for(const k in A){const a=A[k],b=B[k];
+    if(typeof a==='string'&&a[0]==='#'){const bb=(typeof b==='string'&&b[0]==='#')?b:(A.type==='bird'?B.back:B.petal);const ca=hx(a),cb=hx(bb||a);O[k]='#'+ca.map((v,i)=>Math.round(lerp(v,cb[i],t)).toString(16).padStart(2,'0')).join('');}
+    else if(typeof a==='number'&&typeof b==='number')O[k]=lerp(a,b,t);
+    else if(a===null&&typeof b==='string')O[k]=t>0.5?b:null;
+    else O[k]=t>0.5?b:a;}
+  return O;}
+function poseFor(seed,type){const r=mulberry32(seed*131+7);return{flip:r()<0.5,tilt:(r()-0.5)*0.3,bgHue:Math.floor(r()*3),bok:Array.from({length:9},()=>[r()*256,r()*256,20+r()*45,r()]),branchY:190+r()*25,branchA:(r()-0.5)*0.25,wing:(r()-0.5)*0.2,rot:r()*Math.PI*2,cx:118+r()*20,cy:120+r()*20,leaf:r(),r:r};}
+
+function birdGeom(a,p){const g={};
+  const body=new Path2D();body.ellipse(124,142,54,38,-0.32,0,Math.PI*2);g.body=body;
+  const tl=70*a.tailLen;const tail=new Path2D();tail.moveTo(88,150);tail.lineTo(88-tl*0.9,150+tl*0.55);tail.lineTo(88-tl*0.75,150+tl*0.75);tail.lineTo(100,166);tail.closePath();g.tail=tail;
+  const breast=new Path2D();breast.ellipse(150,150,30,26,-0.3,0,Math.PI*2);g.breast=breast;
+  const belly=new Path2D();belly.ellipse(126,166,40,20,-0.18,0,Math.PI*2);g.belly=belly;
+  const wing=new Path2D();wing.ellipse(112,134,50,22,-0.28+p.wing,0,Math.PI*2);g.wing=wing;
+  const wingbar=new Path2D();wingbar.ellipse(118,128,30,4,-0.28+p.wing,0,Math.PI*2);wingbar.ellipse(104,140,30,4,-0.28+p.wing,0,Math.PI*2);g.wingbar=wingbar;
+  const patch=new Path2D();patch.ellipse(138,120,14,8,-0.4,0,Math.PI*2);g.patch=patch;
+  const head=new Path2D();head.arc(176,100,27,0,Math.PI*2);g.head=head;
+  const crown=new Path2D();crown.ellipse(174,82,24,13,0.15,0,Math.PI*2);g.crown=crown;
+  const throat=new Path2D();throat.ellipse(184,118,15,11,0.2,0,Math.PI*2);g.throat=throat;
+  const eye=new Path2D();eye.arc(186,95,5,0,Math.PI*2);g.eye=eye;
+  const L=a.beakLen;const beak=new Path2D();beak.moveTo(199,92);beak.lineTo(199+L,100);beak.lineTo(199,107);beak.closePath();g.beak=beak;
+  const legs=new Path2D();legs.rect(120,170,3,p.branchY-170);legs.rect(134,170,3,p.branchY-172);g.legs=legs;
+  return g;}
+function flowerGeom(a,p){const g={};const cx=p.cx,cy=p.cy,R=78*a.size;const petals=new Path2D(),list=[];
+  for(let l=0;l<a.layers;l++){const n=a.n,rl=R*(1-l*0.22),off=p.rot+l*Math.PI/n;
+    for(let i=0;i<n;i++){const th=off+i*2*Math.PI/n;const P=new Path2D();const m=new DOMMatrix().translate(cx,cy).rotate(th*180/Math.PI);
+      const s=new Path2D();
+      if(a.shape==='round'){s.ellipse(rl*0.55,0,rl*0.5,rl*0.36,0,0,Math.PI*2);}
+      else if(a.shape==='thin'){s.ellipse(rl*0.55,0,rl*0.5,rl*0.075,0,0,Math.PI*2);}
+      else if(a.shape==='pointed'){s.moveTo(4,0);s.quadraticCurveTo(rl*0.45,-rl*0.34,rl,0);s.quadraticCurveTo(rl*0.45,rl*0.34,4,0);}
+      else{s.moveTo(2,0);const steps=14;for(let k=0;k<=steps;k++){const t=k/steps,ang=-Math.PI/2+t*Math.PI;const rr=rl*0.46*(1+0.09*Math.sin(t*Math.PI*7));s.lineTo(rl*0.5+Math.sin(ang)*rr,-Math.cos(ang)*rr*0.78);}s.closePath();}
+      P.addPath(s,m);petals.addPath(s,m);list.push({P,th,rl,l});}}
+  g.petals=petals;g.petalList=list;
+  const center=new Path2D();center.arc(cx,cy,R*a.centerSize,0,Math.PI*2);g.center=center;
+  const stamens=new Path2D();if(a.stamen){for(let i=0;i<14;i++){const th=i*2*Math.PI/14+0.2;const r1=R*0.12,r2=R*0.36;stamens.moveTo(cx+Math.cos(th)*r1,cy+Math.sin(th)*r1);stamens.arc(cx+Math.cos(th)*r2,cy+Math.sin(th)*r2,3,0,Math.PI*2);}}g.stamens=stamens;
+  const leaves=new Path2D();leaves.ellipse(60,220,60,18,-0.5,0,Math.PI*2);leaves.ellipse(200,230,55,16,0.4,0,Math.PI*2);g.leaves=leaves;
+  return g;}
+
+function setPose(ctx,p,S){const k=S/256;ctx.setTransform(k,0,0,k,0,0);if(p.flip){ctx.translate(256,0);ctx.scale(-1,1);}ctx.translate(128,128);ctx.rotate(p.tilt*0.6);ctx.translate(-128,-128);}
+function drawBackground(ctx,type,p,S){ctx.setTransform(S/256,0,0,S/256,0,0);const pals=type==='bird'?[['#cfe0c4','#7fa070'],['#d7e6f2','#8fb2cf'],['#ece2cf','#b59e78']]:[['#a8c98f','#3f6b33'],['#b9d4a0','#4d7a3d'],['#cfe0b5','#5f8a45']];const pp=pals[p.bgHue];
+  const gr=ctx.createRadialGradient(128,110,20,128,128,200);gr.addColorStop(0,pp[0]);gr.addColorStop(1,pp[1]);ctx.fillStyle=gr;ctx.fillRect(0,0,256,256);
+  for(const b of p.bok){const g2=ctx.createRadialGradient(b[0],b[1],0,b[0],b[1],b[2]);g2.addColorStop(0,`rgba(255,255,255,${0.10+0.15*b[3]})`);g2.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g2;ctx.beginPath();ctx.arc(b[0],b[1],b[2],0,Math.PI*2);ctx.fill();}}
+
+// detail: 0..1  (feather strokes, wing bars, highlights) ; distort: 0..1 (early-GAN shape errors)
+function drawObject(ctx,attrs,p,S,detail,distort,maskRegion){
+  const type=attrs.type||'bird';
+  if(maskRegion){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,S,S);}
+  else drawBackground(ctx,type,p,S);
+  setPose(ctx,p,S);
+  if(distort>0){const r=mulberry32(77+Math.floor(distort*100));ctx.translate(128,128);ctx.scale(1+(r()-0.5)*0.35*distort,1+(r()-0.5)*0.35*distort);ctx.rotate((r()-0.5)*0.5*distort);ctx.translate(-128,-128);}
+  if(type==='bird')drawBird(ctx,attrs,p,detail,maskRegion);else drawFlower(ctx,attrs,p,detail,maskRegion);
+  ctx.setTransform(1,0,0,1,0,0);}
+function drawBird(ctx,a,p,detail,mask){const g=birdGeom(a,p);const M=(name)=>{ctx.fillStyle='#fff';ctx.fill(g[name]);};
+  // branch
+  if(!mask){ctx.save();ctx.strokeStyle='#5a3d26';ctx.lineWidth=12;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-20,p.branchY+30*p.branchA);ctx.lineTo(276,p.branchY-30*p.branchA);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=3;ctx.stroke();ctx.restore();}
+  if(mask){const map={body:['body','tail','head','wing'],crown:['crown'],head:['head'],throat:['throat'],breast:['breast'],belly:['belly'],wing:['wing'],wingbar:['wingbar'],tail:['tail'],beak:['beak'],eye:['eye'],patch:['patch'],legs:['legs']};
+    if(mask==='crown'){ctx.save();ctx.clip(g.head);M('crown');ctx.restore();return;}
+    if(mask==='belly'||mask==='breast'){ctx.save();ctx.clip(g.body);M(mask);ctx.restore();return;}
+    (map[mask]||['body']).forEach(M);return;}
+  const C=(h)=>hx(h);
+  ctx.fillStyle=rgbs(C('#3a2a1c'));ctx.fill(g.legs);
+  ctx.fillStyle=rgbs(C(a.tail));ctx.fill(g.tail);
+  ctx.fillStyle=rgbs(C(a.back));ctx.fill(g.body);
+  ctx.save();ctx.clip(g.body);ctx.fillStyle=rgbs(C(a.belly));ctx.fill(g.belly);ctx.fillStyle=rgbs(C(a.breast));ctx.fill(g.breast);
+  if(a.speckle){const r=mulberry32(5);ctx.fillStyle=rgbs(C(a.back),0.85,0.8*(0.4+0.6*detail));for(let i=0;i<70;i++){ctx.beginPath();ctx.ellipse(110+r()*70,140+r()*40,1.6+r()*1.6,2.4+r()*1.4,0.4,0,Math.PI*2);ctx.fill();}}
+  // shading
+  const sh=ctx.createLinearGradient(0,100,0,190);sh.addColorStop(0,'rgba(255,255,255,0.12)');sh.addColorStop(1,'rgba(0,0,0,0.22)');ctx.fillStyle=sh;ctx.fillRect(0,0,256,256);ctx.restore();
+  ctx.fillStyle=rgbs(C(a.wing));ctx.fill(g.wing);
+  if(a.wingbar&&detail>0.15){ctx.save();ctx.clip(g.wing);ctx.fillStyle=rgbs(C(a.wingbar),1,Math.min(1,detail*1.4));ctx.fill(g.wingbar);ctx.restore();}
+  if(a.patch){ctx.fillStyle=rgbs(C(a.patch));ctx.fill(g.patch);if(a.wingbar&&detail>0.3){ctx.save();ctx.clip(g.patch);ctx.fillStyle=rgbs(C(a.wingbar));ctx.fillRect(126,124,30,6);ctx.restore();}}
+  if(detail>0.2){ctx.save();ctx.clip(g.wing);ctx.strokeStyle=rgbs(C(a.wing),0.6,0.7*detail);ctx.lineWidth=1.4;for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(70+i*6,150-i*3);ctx.quadraticCurveTo(100+i*8,138-i*4,150,122-i*2);ctx.stroke();}ctx.restore();}
+  ctx.fillStyle=rgbs(C(a.head));ctx.fill(g.head);
+  ctx.save();ctx.clip(g.head);ctx.fillStyle=rgbs(C(a.crown));ctx.fill(g.crown);ctx.fillStyle=rgbs(C(a.throat));ctx.fill(g.throat);
+  const hs=ctx.createRadialGradient(168,88,4,176,100,30);hs.addColorStop(0,'rgba(255,255,255,0.18)');hs.addColorStop(1,'rgba(0,0,0,0.12)');ctx.fillStyle=hs;ctx.fillRect(140,60,80,80);ctx.restore();
+  // feathers texture
+  if(detail>0.5){const r=mulberry32(11);ctx.save();ctx.clip(g.body);ctx.lineWidth=1;for(let i=0;i<120;i++){const x=78+r()*100,y=110+r()*70;ctx.strokeStyle=r()<0.5?'rgba(0,0,0,'+(0.12*detail)+')':'rgba(255,255,255,'+(0.12*detail)+')';ctx.beginPath();ctx.arc(x,y,4+r()*3,0.2,1.4);ctx.stroke();}ctx.restore();
+    ctx.save();ctx.clip(g.head);for(let i=0;i<40;i++){const x=152+r()*50,y=76+r()*50;ctx.strokeStyle='rgba(0,0,0,'+(0.1*detail)+')';ctx.beginPath();ctx.arc(x,y,3,0.3,1.3);ctx.stroke();}ctx.restore();}
+  ctx.fillStyle=rgbs(C(a.beak));ctx.fill(g.beak);
+  if(detail>0.3){ctx.strokeStyle='rgba(0,0,0,0.35)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(199,99.5);ctx.lineTo(199+a.beakLen*0.9,100);ctx.stroke();}
+  if(a.eyeRing&&detail>0.15){ctx.beginPath();ctx.arc(186,95,7.5,0,Math.PI*2);ctx.fillStyle=rgbs(C(a.eyeRing));ctx.fill();}
+  ctx.fillStyle='#0b0b0b';ctx.fill(g.eye);
+  if(detail>0.15){ctx.fillStyle='rgba(255,255,255,0.9)';ctx.beginPath();ctx.arc(187.5,93.5,1.6,0,Math.PI*2);ctx.fill();}}
+function drawFlower(ctx,a,p,detail,mask){const g=flowerGeom(a,p);
+  if(mask){ctx.fillStyle='#fff';if(mask==='petals')ctx.fill(g.petals);else if(mask==='center')ctx.fill(g.center);else if(mask==='stamens'){ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.stroke(g.stamens);ctx.fill(g.stamens);}else ctx.fill(g.petals);return;}
+  ctx.fillStyle='#3d6b2e';ctx.fill(g.leaves);if(detail>0.3){ctx.strokeStyle='rgba(20,50,15,0.5)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(10,245);ctx.lineTo(110,195);ctx.moveTo(150,215);ctx.lineTo(250,245);ctx.stroke();}
+  const base=hx(a.petal),tip=hx(a.tip);const R=78*a.size;
+  for(const it of g.petalList){const gr=ctx.createRadialGradient(p.cx,p.cy,R*0.05,p.cx,p.cy,it.rl);gr.addColorStop(0,rgbs(base,0.82-0.1*it.l));gr.addColorStop(0.6,rgbs(base,1-0.08*it.l));gr.addColorStop(1,rgbs(tip));ctx.fillStyle=gr;ctx.fill(it.P);
+    ctx.strokeStyle=rgbs(base,0.7,0.5);ctx.lineWidth=0.8;ctx.stroke(it.P);
+    if(detail>0.5){ctx.save();ctx.clip(it.P);ctx.strokeStyle=rgbs(base,0.65,0.35*detail);ctx.lineWidth=0.8;for(let v=-2;v<=2;v++){ctx.beginPath();ctx.moveTo(p.cx,p.cy);ctx.lineTo(p.cx+Math.cos(it.th+v*0.06)*it.rl,p.cy+Math.sin(it.th+v*0.06)*it.rl);ctx.stroke();}ctx.restore();}}
+  const cr=R*a.centerSize;const cg=ctx.createRadialGradient(p.cx-cr*0.3,p.cy-cr*0.3,1,p.cx,p.cy,cr);const cc=hx(a.center);cg.addColorStop(0,rgbs(cc,1.25));cg.addColorStop(1,rgbs(cc,0.7));ctx.fillStyle=cg;ctx.fill(g.center);
+  if(detail>0.4){const r=mulberry32(3);ctx.fillStyle=rgbs(cc,0.55,0.6*detail);for(let i=0;i<60;i++){const rr=Math.sqrt(r())*cr*0.9,th=r()*Math.PI*2;ctx.beginPath();ctx.arc(p.cx+Math.cos(th)*rr,p.cy+Math.sin(th)*rr,1.1,0,Math.PI*2);ctx.fill();}}
+  if(a.stamen){ctx.strokeStyle=rgbs(hx(a.stamen),0.9,0.5+0.5*detail);ctx.lineWidth=1.3;ctx.stroke(g.stamens);ctx.fillStyle=rgbs(hx(a.stamen));ctx.fill(g.stamens);}}
+
+// Render pipeline: returns canvas at stage resolution, displayed by caller
+const T2I_MODELS={
+  ganint:{name:'GAN-INT-CLS',year:2016,stages:[{res:64,detail:0.05,distort:0.85,noise:0.18,blur:true}]},
+  stack:{name:'StackGAN',year:2017,stages:[{res:64,detail:0.0,distort:0.55,noise:0.14,blur:true},{res:256,detail:0.55,distort:0.12,noise:0.05,blur:false}]},
+  attn:{name:'AttnGAN',year:2018,stages:[{res:64,detail:0.0,distort:0.45,noise:0.12,blur:true},{res:128,detail:0.45,distort:0.12,noise:0.06,blur:false},{res:256,detail:1.0,distort:0.0,noise:0.02,blur:false}]},
+};
+function makeCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c;}
+function renderStage(attrs,pose,stage,seed){
+  const res=stage.res,c=makeCanvas(res),ctx=c.getContext('2d');
+  // draw at 256, then resample to stage resolution (low stages lose detail)
+  const hi=makeCanvas(256),hctx=hi.getContext('2d');
+  // early stages also get washed-out colours
+  const a2=Object.assign({},attrs);if(stage.distort>0.3){for(const k in a2){if(typeof a2[k]==='string'&&a2[k][0]==='#'){const c0=hx(a2[k]);const m=(c0[0]+c0[1]+c0[2])/3;const t=0.25*stage.distort;a2[k]='#'+c0.map(v=>Math.round(lerp(v,m,t)).toString(16).padStart(2,'0')).join('');}}}
+  drawObject(hctx,a2,pose,256,stage.detail,stage.distort,null);
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(hi,0,0,res,res);
+  if(stage.noise>0){const id=ctx.getImageData(0,0,res,res),d=id.data,r=mulberry32(seed*3+res);for(let i=0;i<d.length;i+=4){const n=(r()-0.5)*255*stage.noise;d[i]=clamp(d[i]+n,0,255);d[i+1]=clamp(d[i+1]+n*0.9,0,255);d[i+2]=clamp(d[i+2]+n*1.1,0,255);}ctx.putImageData(id,0,0);}
+  return c;}
+function attentionMap(attrs,pose,region){const m=makeCanvas(64),mc=m.getContext('2d');drawObject(mc,attrs,pose,64,0,0,region||'body');const s=makeCanvas(17),sc=s.getContext('2d');sc.imageSmoothingEnabled=true;sc.drawImage(m,0,0,17,17);return s;}
+// ===================== UI =====================
+const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function parseCol(s){if(s.startsWith('#')){if(s.length===4)s='#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];return[parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16)];}const m=s.match(/[\d.]+/g);return m?m.slice(0,3).map(Number):[128,128,128];}
+let THEME={};function readTheme(){THEME={gen:cssVar('--gen'),dis:cssVar('--dis'),real:cssVar('--real'),ink:cssVar('--ink'),muted:cssVar('--muted'),soft:cssVar('--soft'),line:cssVar('--line'),panel:cssVar('--panel')};THEME.genC=parseCol(THEME.gen);THEME.disC=parseCol(THEME.dis);THEME.realC=parseCol(THEME.real);THEME.softC=parseCol(THEME.soft);}
+readTheme();
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{readTheme();redrawAll();});new MutationObserver(()=>{readTheme();redrawAll();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
+const REDUCED=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- tabs ----------
+const VIEWS=['gan','pix2pix','text2image'];let activeView='gan';
+function showView(v){if(!VIEWS.includes(v))v='gan';activeView=v;$$('.view').forEach(e=>e.classList.toggle('active',e.id==='view-'+v));$$('.tab').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.view===v)));
+  if(v==='pix2pix')Pix.draw();if(v==='text2image')T2I.draw();}
+$$('.tab').forEach(t=>t.addEventListener('click',()=>{location.hash=t.dataset.view;showView(t.dataset.view);}));
+window.addEventListener('hashchange',()=>showView(location.hash.slice(1)));
+
+// ---------- flow node / detail cards ----------
+function setupFlow(viewSel,details,detailEl,extra){const nodes=$$(viewSel+' .node');let cur=(nodes.find(n=>n.getAttribute('aria-expanded')==='true')||nodes[0]).dataset.k;
+  function render(){const d=details[cur];if(!d)return;detailEl.className='card detail '+(d.c||'');detailEl.innerHTML=`<h4>${d.title}</h4>${d.html}`+(extra?extra(cur):'');}
+  nodes.forEach(n=>{n.querySelector('.open')||n.insertAdjacentHTML('beforeend','<span class="open">details</span>');n.addEventListener('click',()=>{cur=n.dataset.k;nodes.forEach(m=>m.setAttribute('aria-expanded',String(m===n)));render();});});
+  render();return{render,get cur(){return cur;}};}
+
+// helpers for drawing Float32 RGB images
+function putRGB(canvas,I){const ctx=canvas.getContext('2d');const w=PR;if(canvas.width!==w){canvas.width=w;canvas.height=w;}const id=ctx.createImageData(w,w);for(let k=0;k<w*w;k++){id.data[4*k]=clamp(I[3*k],0,1)*255;id.data[4*k+1]=clamp(I[3*k+1],0,1)*255;id.data[4*k+2]=clamp(I[3*k+2],0,1)*255;id.data[4*k+3]=255;}ctx.putImageData(id,0,0);}
+function heat(v){// 0 → dis (fake), 0.5 → soft, 1 → real
+  const a=THEME.disC,b=THEME.softC,c=THEME.realC;if(v<0.5){const t=v/0.5;return[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];}const t=(v-0.5)/0.5;return[lerp(b[0],c[0],t),lerp(b[1],c[1],t),lerp(b[2],c[2],t)];}
+
+// ===================== GAN view =====================
+const GanUI=(()=>{
+  const sel=$('#ganDs');GAN_DATASETS.forEach((d,i)=>sel.add(new Option(d.name,i)));
+  let T=new GANTrainer(0,1),playing=!REDUCED,frame=0,fakes=null;
+  const lrFromSlider=v=>Math.pow(10,lerp(Math.log10(0.0005),Math.log10(0.012),v/100));
+  function applyHyper(){const lr=lrFromSlider(+$('#ganLr').value);T.lrD=T.lrG=lr;$('#ganLrOut').textContent=lr.toFixed(4).replace(/0+$/,'');T.k=+$('#ganK').value;$('#ganKOut').textContent=T.k;}
+  function reset(){T=new GANTrainer(+sel.value,1+Math.floor(Math.random()*1000));applyHyper();$('#ganDsNote').textContent=GAN_DATASETS[+sel.value].note;fakes=T.fakes();draw(true);}
+  sel.addEventListener('change',reset);$('#ganReset').addEventListener('click',reset);
+  $('#ganLr').addEventListener('input',applyHyper);$('#ganK').addEventListener('input',applyHyper);
+  const playBtn=$('#ganPlay');function setPlay(p){playing=p;playBtn.textContent=p?'❚❚ Pause':'▶ Train';playBtn.classList.toggle('primary',true);$$('#ganFlow .arrows path.live').forEach(e=>e.style.animationPlayState=p?'running':'paused');}
+  playBtn.addEventListener('click',()=>setPlay(!playing));
+  $('#ganStep').addEventListener('click',()=>{setPlay(false);for(let i=0;i<10;i++)T.step();fakes=T.fakes();draw(true);});
+  ['#ganShowD','#ganShowGrad','#ganShowMan','#ganShowReal'].forEach(s=>$(s).addEventListener('change',()=>draw(true)));
+  const X=v=>(v+1)/2,Y=v=>(1-v)/2;
+  const cv=$('#ganCanvas'),off=document.createElement('canvas');const HR=48;off.width=off.height=HR;
+  function drawHeat(ctx,W,res){const P=T.dGrid(res);off.width=off.height=res;const oc=off.getContext('2d'),id=oc.createImageData(res,res);for(let k=0;k<res*res;k++){const c=heat(P[k]);id.data[4*k]=c[0];id.data[4*k+1]=c[1];id.data[4*k+2]=c[2];id.data[4*k+3]=255;}oc.putImageData(id,0,0);ctx.imageSmoothingEnabled=true;ctx.drawImage(off,0,0,W,ctx.canvas.height);}
+  function manifold(ctx,W,H,alpha,lw){const n=13,m=28,pts=[];for(let i=0;i<n;i++)for(let j=0;j<m;j++){const a=-2.4+4.8*i/(n-1),b=-2.4+4.8*j/(m-1);pts.push(a,b,b,a);}
+    const Z=new Float64Array(pts),N=Z.length/2,O=T.G.forward(Z,N);ctx.strokeStyle=`rgba(${THEME.genC.join(',')},${alpha})`;ctx.lineWidth=lw;
+    for(let i=0;i<n;i++)for(const off2 of[0,1]){ctx.beginPath();for(let j=0;j<m;j++){const q=(i*m+j)*2+off2;const x=X(O[2*q])*W,y=Y(O[2*q+1])*H;j?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}}
+  function dots(ctx,arr,W,H,col,r,alpha){ctx.fillStyle=`rgba(${col.join(',')},${alpha})`;for(let i=0;i<arr.length;i+=2){ctx.beginPath();ctx.arc(X(arr[i])*W,Y(arr[i+1])*H,r,0,7);ctx.fill();}}
+  function draw(full){
+    const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    if($('#ganShowD').checked)drawHeat(ctx,W,HR);else{ctx.fillStyle=THEME.soft;ctx.fillRect(0,0,W,H);}
+    ctx.strokeStyle=`rgba(${parseCol(THEME.muted).join(',')},0.18)`;ctx.lineWidth=1;for(let i=1;i<8;i++){ctx.beginPath();ctx.moveTo(i*W/8,0);ctx.lineTo(i*W/8,H);ctx.moveTo(0,i*H/8);ctx.lineTo(W,i*H/8);ctx.stroke();}
+    if($('#ganShowMan').checked)manifold(ctx,W,H,0.45,1);
+    const realFlat=[];T.vizReal.forEach(p=>realFlat.push(p[0],p[1]));
+    if($('#ganShowReal').checked)dots(ctx,realFlat,W,H,THEME.realC,3.2,0.75);
+    if(!fakes)fakes=T.fakes();
+    if($('#ganShowGrad').checked){const Gd=T.fakeGrads(fakes);ctx.strokeStyle=`rgba(${THEME.genC.join(',')},0.75)`;ctx.lineWidth=1.2;for(let i=0;i<T.vizN;i+=2){let gx=-Gd[2*i],gy=-Gd[2*i+1];const m=Math.hypot(gx,gy)||1e-9,L=Math.min(26,m*60);gx/=m;gy/=m;const x=X(fakes[2*i])*W,y=Y(fakes[2*i+1])*H;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+gx*L,y-gy*L);ctx.stroke();}}
+    dots(ctx,fakes,W,H,THEME.genC,3.2,0.9);
+    if(full||frame%3===0)drawMinis(realFlat);
+    $('#ganIter').textContent=T.iter.toLocaleString('en-US');
+    if(T.last){$('#sLD').textContent=T.last.lossD.toFixed(3);$('#sLG').textContent=T.last.lossG.toFixed(3);$('#sDr').textContent=T.last.dReal.toFixed(2);$('#sDf').textContent=T.last.dFake.toFixed(2);$('#gnLossTxt').textContent=`L_D ${T.last.lossD.toFixed(2)} · L_G ${T.last.lossG.toFixed(2)}`;}
+    drawLoss($('#lossCanvas'),true);
+  }
+  function mini(id){const c=$(id),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle=THEME.soft;ctx.fillRect(0,0,c.width,c.height);return[ctx,c.width,c.height];}
+  function drawMinis(realFlat){
+    let [c,w,h]=mini('#gnNoise');c.fillStyle=`rgba(${parseCol(THEME.muted).join(',')},0.7)`;for(let i=0;i<T.vizN;i++){c.fillRect(w/2+T.vizZ[2*i]*w/7-1,h/2-T.vizZ[2*i+1]*h/7-1,2,2);}
+    [c,w,h]=mini('#gnG');manifold(c,w,h,0.8,0.8);
+    [c,w,h]=mini('#gnFake');dots(c,fakes,w,h,THEME.genC,1.4,0.85);
+    [c,w,h]=mini('#gnReal');dots(c,realFlat,w,h,THEME.realC,1.4,0.85);
+    [c,w,h]=mini('#gnD');drawHeat(c,w,24);
+    [c,w,h]=mini('#gnPred');if(T.last){const bars=[[T.last.dReal,THEME.real,'D(x)'],[T.last.dFake,THEME.gen,'D(G(z))']];bars.forEach((b,i)=>{const bw=30,x=14+i*48,bh=(h-18)*b[0];c.fillStyle=b[1];c.fillRect(x,h-14-bh,bw,bh);c.fillStyle=THEME.ink;c.font='10px IBM Plex Mono, monospace';c.fillText(b[0].toFixed(2),x+2,h-16-bh);c.fillStyle=THEME.muted;c.font='9px IBM Plex Mono, monospace';c.fillText(b[2],x-4,h-3);});c.strokeStyle=THEME.muted;c.setLineDash([3,3]);c.beginPath();c.moveTo(0,h-14-(h-18)*0.5);c.lineTo(w,h-14-(h-18)*0.5);c.stroke();c.setLineDash([]);}
+    drawLoss($('#gnLoss'),false);
+    if(Flow.cur==='pred'||Flow.cur==='loss'||Flow.cur==='D')Flow.render();
+  }
+  function drawLoss(c,axes){const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);const H=T.hist;const pad=axes?[28,8,6,16]:[2,2,2,2];const ymax=2.2;
+    const px=i=>pad[0]+(w-pad[0]-pad[1])*(H.length<2?0:i/(H.length-1)),py=v=>pad[2]+(h-pad[2]-pad[3])*(1-clamp(v,0,ymax)/ymax);
+    if(axes){ctx.font='10px IBM Plex Mono, monospace';ctx.fillStyle=THEME.muted;ctx.strokeStyle=THEME.line;[0,1,2].forEach(v=>{ctx.beginPath();ctx.moveTo(pad[0],py(v));ctx.lineTo(w-pad[1],py(v));ctx.stroke();ctx.fillText(v.toFixed(1),2,py(v)+3);});
+      if(H.length)ctx.fillText('iter '+H[H.length-1].it,w-70,h-3);}
+    ctx.setLineDash([4,4]);ctx.lineWidth=1;[[2*Math.LN2,THEME.dis],[Math.LN2,THEME.gen]].forEach(([v,col])=>{ctx.strokeStyle=col;ctx.globalAlpha=0.6;ctx.beginPath();ctx.moveTo(pad[0],py(v));ctx.lineTo(w-pad[1],py(v));ctx.stroke();});ctx.globalAlpha=1;ctx.setLineDash([]);
+    [['lossD',THEME.dis],['lossG',THEME.gen]].forEach(([k,col])=>{ctx.strokeStyle=col;ctx.lineWidth=axes?1.6:1.2;ctx.beginPath();H.forEach((p,i)=>{i?ctx.lineTo(px(i),py(p[k])):ctx.moveTo(px(i),py(p[k]));});ctx.stroke();});
+    if(axes&&H.length){ctx.fillStyle=THEME.dis;ctx.fillText('L_D',pad[0]+4,12);ctx.fillStyle=THEME.gen;ctx.fillText('L_G',pad[0]+34,12);}}
+  function loop(){if(playing&&activeView==='gan'&&!document.hidden){const t0=performance.now();let n=0;while(performance.now()-t0<12&&n<12){T.step();n++;}fakes=T.fakes();frame++;draw(false);}requestAnimationFrame(loop);}
+  const DET={
+    noise:{title:'Random noise z',html:'<p>Every fake sample starts as a random vector drawn from a standard normal distribution. Here z has 2 dimensions so you can see it; image GANs typically use 100–512.</p><p>The noise is the source of variety: different z values give different outputs. G is a deterministic function, so the same z always produces the same sample.</p>'},
+    G:{c:'g',title:'Generator G',html:'<p>A neural network that maps noise to data space: <span class="mono">G: z ↦ x̂</span>. Here it is a multilayer perceptron with two hidden layers of 32 units (LeakyReLU) and a linear output. The thumbnail shows a regular grid in z-space after G has warped it.</p><p>G never sees a real sample. It learns only from the gradient that flows back through D, which tells it in which direction each fake should move to look more real.</p><p class="note">Loss (non-saturating): L_G = −𝔼[log D(G(z))]</p>'},
+    fake:{c:'g',title:'Fake samples G(z)',html:'<p>The generator\'s current outputs for a fixed set of 300 noise vectors. Watching the same z\'s over time shows how G\'s mapping moves.</p><p>On the main plot the violet line from each fake shows the gradient step G would like to take.</p>'},
+    real:{c:'r',title:'Real samples x',html:'<p>Points drawn from the target distribution p<sub>data</sub>. The networks never get its formula; they only see samples, as an image GAN only sees training photos.</p><p class="note" id="ganRealName"></p>'},
+    D:{c:'d',title:'Discriminator D',html:'<p>A classifier that outputs the probability that its input is real. Here it is an MLP with two hidden layers of 48 units and a sigmoid output. The thumbnail and the main background show D\'s output over the whole plane.</p><p>D is trained with binary cross-entropy: L_D = −𝔼[log D(x)] − 𝔼[log(1 − D(G(z)))]. Its decision surface is what gives G its gradient.</p>'},
+    pred:{c:'d',title:'Prediction',html:'<p>Average D output on a batch of real points and on a batch of fakes. Early on D separates them easily (D(x) high, D(G(z)) low). As G improves, both move toward 0.5, the point where D can only guess.</p>'},
+    loss:{title:'Losses and updates',html:'<p>One iteration updates D (k times) to separate real from fake, then updates G to fool the new D. The dashed arrows in the diagram are these gradient updates.</p><p>Unlike ordinary training, the losses do not simply go down: each network\'s loss rises when the other improves. A run is healthy when they hover near the equilibrium values instead of one collapsing to zero.</p>'},
+  };
+  const Flow=setupFlow('#ganFlow',DET,$('#ganDetail'),k=>{if(!T.last)return'';if(k==='pred'||k==='D')return`<dl class="kv"><dt>mean D(x)</dt><dd>${T.last.dReal.toFixed(3)}</dd><dt>mean D(G(z))</dt><dd>${T.last.dFake.toFixed(3)}</dd></dl>`;if(k==='loss')return`<dl class="kv"><dt>L_D</dt><dd>${T.last.lossD.toFixed(3)} (equilibrium 1.386)</dd><dt>L_G</dt><dd>${T.last.lossG.toFixed(3)} (equilibrium 0.693)</dd><dt>iteration</dt><dd>${T.iter}</dd></dl>`;if(k==='real')return`<dl class="kv"><dt>example</dt><dd>${GAN_DATASETS[+sel.value].name}</dd></dl>`;if(k==='G'||k==='D'){const net=k==='G'?T.G:T.D;let n=0;net.layers.forEach(L=>n+=L.W.length+L.b.length);return`<dl class="kv"><dt>parameters</dt><dd>${n.toLocaleString('en-US')}</dd><dt>optimizer</dt><dd>Adam, lr ${T.lrG.toFixed(4)}, β₁ 0.5</dd><dt>batch</dt><dd>${T.batch}</dd></dl>`;}return'';});
+  applyHyper();$('#ganDsNote').textContent=GAN_DATASETS[0].note;setPlay(playing);
+  if(REDUCED){for(let i=0;i<400;i++)T.step();}
+  fakes=T.fakes();draw(true);requestAnimationFrame(loop);
+  return{draw:()=>draw(true)};
+})();
+
+// ===================== Pix2Pix view =====================
+const Pix=(()=>{
+  const sel=$('#pixTask');PIX_TASKS.forEach((t,i)=>sel.add(new Option(t.name,i)));
+  $('#pixTaskTable').innerHTML=PIX_TASKS.map(t=>{const [n,...rest]=t.name.split(' · ');return`<tr><td>${n}</td><td>${rest.join(' · ')}</td><td>${t.ds}</td></tr>`;}).join('');
+  const st={task:0,seed:3,obj:'L1+cGAN',arch:'UNet',epoch:200,patch:false,playing:false};const sims={};
+  function sim(){const k=st.task+'|'+st.seed;if(!sims[k])sims[k]=new PixSim(PIX_TASKS[st.task],st.seed);return sims[k];}
+  function seg(id,key){$$(id+' button').forEach(b=>b.addEventListener('click',()=>{st[key]=b.dataset.v;$$(id+' button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));if(key==='obj')$$('#pixLossRow button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===st.obj)));draw(true);}));}
+  seg('#pixObj','obj');seg('#pixArch','arch');
+  $$('#pixLossRow button').forEach(b=>b.addEventListener('click',()=>{st.obj=b.dataset.v;$$('#pixLossRow button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));$$('#pixObj button').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.v===st.obj)));draw(true);}));
+  sel.addEventListener('change',()=>{st.task=+sel.value;st.seed=3+st.task;draw(true);});
+  $('#pixNew').addEventListener('click',()=>{st.seed=10+Math.floor(Math.random()*9999);draw(true);});
+  $('#pixPatch').addEventListener('change',e=>{st.patch=e.target.checked;draw(false);});
+  const ep=$('#pixEpoch');ep.addEventListener('input',()=>{st.epoch=+ep.value;draw(false);});
+  const playBtn=$('#pixPlay');let raf=0;
+  playBtn.addEventListener('click',()=>{if(st.playing){st.playing=false;playBtn.textContent='▶ Train';cancelAnimationFrame(raf);return;}st.playing=true;playBtn.textContent='❚❚ Pause';if(st.epoch>=200)st.epoch=0;let last=performance.now();
+    const tick=t=>{if(!st.playing)return;const dt=t-last;if(dt>45){last=t;st.epoch=Math.min(200,st.epoch+(st.epoch<40?2:4));ep.value=st.epoch;draw(false);}if(st.epoch>=200){st.playing=false;playBtn.textContent='▶ Train';return;}raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);});
+  // mini diagrams
+  function unetSvg(){const s=$('#unetMini');const enc=[44,38,32,26,20,15,10,6],cols=enc.length;let h='';const g=THEME.gen;const ed=st.arch==='ED';
+    for(let i=0;i<cols;i++){const hh=enc[i]*1.6,x=4+i*10,y=56-hh/2;h+=`<rect x="${x}" y="${y}" width="6" height="${hh}" rx="1" fill="${g}" opacity="${0.35+0.08*i}"/>`;const x2=164-i*10-6;h+=`<rect x="${x2}" y="${y}" width="6" height="${hh}" rx="1" fill="${g}" opacity="${0.35+0.08*i}"/>`;
+      if(!ed&&i<7)h+=`<path d="M${x+6},${y-1} C${x+20},${y-12-(7-i)} ${x2-14},${y-12-(7-i)} ${x2},${y-1}" fill="none" stroke="${THEME.real}" stroke-width="1" opacity=".8"/>`;}
+    h+=`<text x="84" y="108" text-anchor="middle" font-size="9" font-family="IBM Plex Mono, monospace" fill="${THEME.muted}">${ed?'no skip connections':'skip connections (teal)'}</text>`;s.innerHTML=h;
+    const node=s.closest('.node');node.querySelector('.t').textContent=ed?'Generator: encoder-decoder':'Generator: U-Net';}
+  function patchSvg(){const s=$('#patchMini');const d=THEME.dis;let h='';[[4,36,62],[24,30,50],[42,24,40],[58,20,32],[72,16,24]].forEach(([x,w,hh],i)=>{h+=`<rect x="${x}" y="${48-hh/2}" width="${12}" height="${hh}" rx="1.5" fill="${d}" opacity="${0.3+0.12*i}"/>`;});
+    for(let j=0;j<5;j++)for(let i=0;i<5;i++)h+=`<rect x="${98+i*9}" y="${26+j*9}" width="8" height="8" fill="${(i*3+j*5)%4?THEME.real:d}" opacity=".8"/>`;h+=`<text x="74" y="92" text-anchor="middle" font-size="9" font-family="IBM Plex Mono, monospace" fill="${THEME.muted}">C64-C128-C256-C512 → N×N</text>`;s.innerHTML=h;}
+  function drawMap(c,M,N){const ctx=c.getContext('2d');c.width=N;c.height=N;const id=ctx.createImageData(N,N);for(let k=0;k<N*N;k++){const col=heat(M[k]);id.data[4*k]=col[0];id.data[4*k+1]=col[1];id.data[4*k+2]=col[2];id.data[4*k+3]=255;}ctx.putImageData(id,0,0);}
+  let lastCmpKey='';
+  function draw(full){const S=sim(),t=PIX_TASKS[st.task];const O=S.output(st.obj,st.arch,st.epoch);
+    putRGB($('#pX'),S.A);putRGB($('#pnX'),S.A);putRGB($('#pY'),S.B);putRGB($('#pnY'),S.B);putRGB($('#pG'),O);putRGB($('#pnOut'),O);
+    const M=S.patchMap(O,8);drawMap($('#pnMap'),M,8);const ov=$('#pOv');ov.hidden=!st.patch;if(st.patch)drawMap(ov,M,8);
+    const real=M.filter(v=>v>0.5).length/M.length,mean=M.reduce((a,b)=>a+b,0)/M.length;
+    $('#pixReal').textContent=Math.round(real*100)+'%';$('#pnLoss').textContent='mean D: '+mean.toFixed(2);$('#pixDs').textContent='dataset: '+t.ds;
+    $('#pcapX').textContent=t.inLabel;$('#pcapY').textContent=t.outLabel;$('#pcapG').textContent=`${st.obj} · ${st.arch==='UNet'?'U-Net':'enc-dec'} · epoch ${st.epoch}`;
+    $('#pnXs').textContent=t.inLabel;$('#pnOuts').textContent='epoch '+st.epoch;$('#pixEpochOut').textContent=st.epoch;ep.value=st.epoch;
+    const ck=st.task+'|'+st.seed+'|'+st.arch;if(ck!==lastCmpKey){lastCmpKey=ck;$$('#pixLossRow button').forEach(b=>putRGB(b.querySelector('canvas'),S.output(b.dataset.v,st.arch,200)));}
+    if(full){unetSvg();patchSvg();}
+    if(Flow.cur==='map'||Flow.cur==='out'||Flow.cur==='x')Flow.render();}
+  const DET={
+    x:{title:'Input image x',html:'<p>The condition. For each task the input is a different kind of image: a semantic label map, an edge map, a map tile, a grayscale or daytime photo. Pix2Pix needs <b>paired</b> training data: every input comes with the matching target photo y.</p>',x:1},
+    G:{c:'g',title:'Generator: U-Net',html:'<p>An encoder-decoder that maps a 256×256×3 input to a 256×256×3 output. The encoder (C64-C128-C256-C512-C512-C512-C512-C512, 4×4 convolutions with stride 2) shrinks the image to a 1×1×512 bottleneck; the decoder mirrors it with transposed convolutions.</p><p><b>Skip connections</b> concatenate each encoder layer i with decoder layer n−i, so edges and fine details can bypass the bottleneck. Dropout (rate 0.5) in the first decoder layers supplies the randomness, at train and test time.</p><p>Switch the <i>Generator</i> control to compare with a plain encoder-decoder.</p>'},
+    out:{c:'g',title:'Output G(x)',html:'<p>The translated image. Its quality depends on the objective (try L1 only, cGAN only, L1 + cGAN) and on training progress (epoch slider). Early in training the output is noise, then a blurry layout, then sharp detail.</p>'},
+    y:{c:'r',title:'Ground truth y',html:'<p>The real target image paired with x. It is used twice: as the "real" example for the discriminator, paired with x, and as the reference for the L1 reconstruction loss.</p><p>The generator is not expected to reproduce y exactly. A plausible car of a different colour is a fine answer, which is why L1 alone, by averaging the possibilities, produces blur.</p>'},
+    D:{c:'d',title:'PatchGAN discriminator',html:'<p>D receives the input and an output stacked along the channel axis: (x, y) for real pairs and (x, G(x)) for fake pairs. Seeing x lets it penalise outputs that are realistic but do not match the input.</p><p>It is fully convolutional (C64-C128-C256-C512, then a 1-channel convolution and sigmoid). Each output unit has a 70×70-pixel receptive field, so D classifies <i>patches</i>, not whole images. For a 256×256 input it outputs a 30×30 grid of scores that are averaged.</p>'},
+    map:{c:'d',title:'Patch real/fake map',html:'<p>One probability per patch: teal = "looks like a real patch", amber = "fake". Blurry L1 outputs fail almost everywhere, because real photos have sharp local texture. cGAN-only outputs fail where artifacts appear.</p><p class="note">Shown here on an 8×8 grid for readability. The scores are an illustrative local-statistics comparison, not a trained network.</p>'},
+    loss:{title:'Objective',html:'<p>G minimises <span class="mono">L<sub>cGAN</sub> + λ·L<sub>1</sub></span> with λ = 100, while D maximises L<sub>cGAN</sub>. The L1 term keeps the output close to y at low frequencies; the adversarial term makes every 70×70 patch look real.</p><p>Training uses Adam with learning rate 0.0002 and β₁ = 0.5, alternating one D step and one G step.</p>'},
+  };
+  const Flow=setupFlow('#view-pix2pix',DET,$('#pixDetail'),k=>{const t=PIX_TASKS[st.task];if(k==='x'||k==='out')return`<dl class="kv"><dt>task</dt><dd>${t.name.split(' · ')[1]}</dd><dt>dataset</dt><dd>${t.ds}</dd><dt>input</dt><dd>${t.inLabel}</dd><dt>output</dt><dd>${t.outLabel}</dd></dl>`;if(k==='map'){const S=sim();const M=S.patchMap(S.output(st.obj,st.arch,st.epoch),8);return`<dl class="kv"><dt>patches judged real</dt><dd>${Math.round(100*M.filter(v=>v>0.5).length/M.length)}%</dd><dt>objective</dt><dd>${st.obj}</dd></dl>`;}return'';});
+  return{draw:()=>draw(true)};
+})();
+
+// ===================== Text-to-image view =====================
+const T2I=(()=>{
+  const sel=$('#tPrompt');T2I_PROMPTS.forEach((p,i)=>sel.add(new Option(`${i+1} · ${p.text}`,i)));
+  const st={p:0,model:'attn',stage:2,seed:4,t:0,tok:null};
+  $$('#tModel button').forEach(b=>b.addEventListener('click',()=>{st.model=b.dataset.v;$$('#tModel button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));st.stage=T2I_MODELS[st.model].stages.length-1;draw();}));
+  sel.addEventListener('change',()=>{st.p=+sel.value;st.tok=null;draw();});
+  $('#tSeed').addEventListener('click',()=>{st.seed=1+Math.floor(Math.random()*9999);draw();});
+  $('#tInterp').addEventListener('input',e=>{st.t=+e.target.value/100;$('#tInterpOut').textContent=e.target.value+'%';draw();});
+  $$('#tStages button').forEach(b=>b.addEventListener('click',()=>{st.stage=+b.dataset.i;draw();}));
+  function nextOf(i){const type=T2I_PROMPTS[i].type;for(let k=1;k<=10;k++){const j=(i+k)%10;if(T2I_PROMPTS[j].type===type)return j;}return i;}
+  function words(text){return text.split(/\s+/).map(w=>w.replace(/[^a-z]/gi,'').toLowerCase()).filter(Boolean);}
+  function vecBars(el,vals,max){el.innerHTML=vals.map(v=>`<i style="height:${clamp(Math.abs(v)/max,0.06,1)*100}%;opacity:${v<0?0.5:1}"></i>`).join('');}
+  function wordVec(w){const r=mulberry32([...w].reduce((a,c)=>a*31+c.charCodeAt(0),7)>>>0),g=gaussFn(r);return Array.from({length:24},()=>g());}
+  function blit(dst,src){const c=dst.getContext('2d');c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.clearRect(0,0,dst.width,dst.height);c.drawImage(src,0,0,dst.width,dst.height);}
+  let stageCanv=[];
+  function draw(){const P=T2I_PROMPTS[st.p],N=T2I_PROMPTS[nextOf(st.p)];const attrs=Object.assign({type:P.type},lerpAttrs(P.a,N.a,st.t));const pose=poseFor(st.seed,P.type);const M=T2I_MODELS[st.model];
+    stageCanv=M.stages.map(s=>renderStage(attrs,pose,s,st.seed));if(st.stage>=M.stages.length)st.stage=M.stages.length-1;
+    const cur=stageCanv[st.stage];blit($('#tMain'),cur);
+    const sres=M.stages.map(s=>s.res);
+    $('#tCap').textContent=`${M.name} · stage ${['I','II','III'][st.stage]} · ${sres[st.stage]}×${sres[st.stage]}`;
+    $$('#tStages button').forEach((b,i)=>{const c=b.querySelector('canvas');const ok=i<M.stages.length;b.disabled=!ok;b.setAttribute('aria-pressed',String(i===st.stage));b.lastChild.textContent=ok?`${sres[i]}×${sres[i]}`:'not in model';const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);if(ok)blit(c,stageCanv[i]);});
+    ['#tnS1','#tnS2','#tnS3'].forEach((id,i)=>{const c=$(id),ok=i<M.stages.length;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);if(ok)blit(c,stageCanv[i]);else{ctx.fillStyle=THEME.soft;ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle=THEME.muted;ctx.font='12px IBM Plex Sans, sans-serif';ctx.textAlign='center';ctx.fillText('not in',c.width/2,c.height/2-4);ctx.fillText(M.name,c.width/2,c.height/2+12);}c.closest('.node').style.opacity=ok?1:0.55;});
+    $('#tnS2s').textContent=M.stages[1]?`${sres[1]}×${sres[1]}`:'—';$('#tnS3s').textContent=M.stages[2]?'256×256: details':'—';
+    const attnOn=st.model==='attn';['#tWordArrow','#tWordArrow2','#tWordLbl'].forEach(s=>$(s).style.opacity=attnOn?1:0.15);
+    // text side
+    $('#tnPrompt').textContent='“'+P.text+'”'+(st.t>0?`  ↔ ${Math.round(st.t*100)}% “${N.text}”`:'');
+    const ws=words(P.text);const vs=ws.map(wordVec);const sent=vs[0].map((_,d)=>vs.reduce((a,v)=>a+v[d],0)/vs.length);
+    if(st.t>0){const ws2=words(N.text).map(wordVec);const s2=ws2[0].map((_,d)=>ws2.reduce((a,v)=>a+v[d],0)/ws2.length);for(let d=0;d<sent.length;d++)sent[d]=lerp(sent[d],s2[d],st.t);}
+    vecBars($('#tnSent'),sent,1.2);vecBars($('#tnWords'),vs.map(v=>Math.hypot(...v)/5),1.3);
+    const zr=gaussFn(mulberry32(st.seed*17));const z=Array.from({length:20},()=>zr());vecBars($('#tnZ'),z,2.5);
+    $('#tnCA').innerHTML=sent.slice(0,16).map((m,i)=>{const s=0.15+0.25*Math.abs(Math.sin(i*1.7+st.p));return`<i style="height:${clamp(Math.abs(m)/1.2,0.08,1)*100}%;opacity:${0.55+0.45*(1-s)}" title="μ ${m.toFixed(2)} σ ${s.toFixed(2)}"></i>`;}).join('');
+    // tokens
+    const tw=P.text.split(/\s+/);$('#tTokens').innerHTML=tw.map(w=>{const k=w.replace(/[^a-z]/gi,'').toLowerCase();return`<button type="button" class="tok${P.tags[k]?' hit':''}" data-w="${k}" aria-pressed="${st.tok===k}">${w.replace(/,/,'')}</button>`;}).join('');
+    $$('#tTokens .tok').forEach(b=>b.addEventListener('click',()=>{st.tok=st.tok===b.dataset.w?null:b.dataset.w;draw();}));
+    $('#tTokHint').textContent=attnOn?'Click a word to see where AttnGAN attends (highlighted words carry attributes).':'Word attention exists only in AttnGAN; switch the model to use it.';
+    const ov=$('#tAttn');const showAttn=attnOn&&st.tok&&st.stage>0;ov.hidden=!showAttn;
+    if(showAttn){const region=P.tags[st.tok];const m=attentionMap(attrs,pose,region||(P.type==='bird'?'body':'petals'));const mc=m.getContext('2d'),d=mc.getImageData(0,0,17,17);const oc=ov.getContext('2d'),od=oc.createImageData(17,17);const weak=!region;
+      for(let k=0;k<289;k++){let v=d.data[4*k]/255;v=weak?0.35*v:v;const c=jet(0.25+0.75*v);od.data[4*k]=c[0];od.data[4*k+1]=c[1];od.data[4*k+2]=c[2];od.data[4*k+3]=Math.round(235*Math.pow(v,1.1));}oc.putImageData(od,0,0);}
+    // matching-aware D cards
+    const mc=$$('#tMatch canvas');const realPose=poseFor(5,P.type);const real=renderStage(Object.assign({type:P.type},P.a),realPose,{res:256,detail:1,distort:0,noise:0},5);blit(mc[0],real);blit(mc[1],real);
+    const fake=renderStage(attrs,pose,T2I_MODELS.ganint.stages[0],st.seed);blit(mc[2],fake);
+    const wrong=T2I_PROMPTS[nextOf(st.p)].text;mc[1].title='wrong text: “'+wrong+'”';mc[1].nextElementSibling.textContent='real image + “'+wrong.split(' ').slice(0,5).join(' ')+'…”';
+    Flow.render();}
+  function jet(v){const r=clamp(1.5-Math.abs(4*v-3),0,1),g=clamp(1.5-Math.abs(4*v-2),0,1),b=clamp(1.5-Math.abs(4*v-1),0,1);return[r*255,g*255,b*255];}
+  const DET={
+    prompt:{title:'Text prompt',html:'<p>A natural-language description. GAN text-to-image models were trained on narrow domains with many captions per image, such as CUB-200 birds and Oxford-102 flowers (ten captions each), so they handle descriptions of colours and parts well but not arbitrary scenes.</p>'},
+    enc:{title:'Text encoder',html:'<p>Turns the sentence into a <b>sentence embedding</b> φ(t) and, for AttnGAN, one feature vector per word. GAN-INT-CLS and StackGAN use a pretrained char-CNN-RNN encoder; AttnGAN uses a bidirectional LSTM trained jointly with an image encoder (DAMSM) so that words line up with image regions.</p><p class="note">Bars show an illustrative 24-dimensional embedding; real encoders use 256–1024 dimensions.</p>'},
+    ca:{title:'Conditioning augmentation',html:'<p>Introduced by StackGAN. Instead of feeding φ(t) directly, a small layer predicts a mean μ(φ) and diagonal covariance σ(φ), and the condition is sampled: <span class="mono">c = μ + σ ⊙ ε</span>, ε ~ N(0, I). A KL-divergence penalty keeps this distribution close to N(0, I).</p><p>The randomness creates many slightly different conditions per caption and makes the generator robust to small changes in the text.</p>'},
+    z:{title:'Noise z',html:'<p>A random vector concatenated with the text condition. It controls everything the sentence leaves open: pose, viewpoint, background, lighting. Press <i>New noise z</i> to resample it while keeping the text fixed.</p>'},
+    s1:{c:'g',title:'Stage I generator (64×64)',html:'<p>Upsamples [c; z] through convolutional blocks to a low-resolution image that captures the rough shape and main colours. In StackGAN the authors describe this as a "sketch". Shapes are often distorted and details missing.</p><p>Each stage has its own discriminator during training.</p>'},
+    s2:{c:'g',title:'Stage II generator',html:'<p><b>StackGAN:</b> encodes the Stage-I image, fuses it with the text condition again, passes it through residual blocks and upsamples to 256×256, correcting defects and adding detail.</p><p><b>AttnGAN:</b> upsamples to 128×128. An attention module computes, for every image sub-region, a weighted sum of word features (a word-context vector) and fuses it with the image features.</p>'},
+    s3:{c:'g',title:'Stage III generator (AttnGAN, 256×256)',html:'<p>A second attention-driven refinement at full resolution. Fine-grained words such as "crown", "wing bars" or "stamens" now get their own regions, adding texture and part-level detail. Click a highlighted word to see its attention map.</p>'},
+    D:{c:'d',title:'Matching-aware discriminator',html:'<p>Used only during training, one per stage. It receives an image and the sentence embedding and must output "real" only for real images paired with their own caption. Generated images and mismatched pairs count as fake. AttnGAN additionally adds the DAMSM loss, which scores word-to-region agreement.</p><p>At generation time only the encoder and generators run, once each, which is why GANs are fast.</p>'},
+  };
+  const Flow=setupFlow('#view-text2image',DET,$('#tDetail'),k=>{const M=T2I_MODELS[st.model];if(k.startsWith('s')){const i=+k[1]-1;return i<M.stages.length?`<dl class="kv"><dt>model</dt><dd>${M.name} (${M.year})</dd><dt>this stage</dt><dd>${M.stages[i].res}×${M.stages[i].res}</dd><dt>stages in model</dt><dd>${M.stages.length}</dd></dl>`:`<p class="note">${M.name} has no stage ${['I','II','III'][i]}.</p>`;}return'';});
+  return{draw};
+})();
+function redrawAll(){GanUI.draw();Pix.draw();T2I.draw();}
+showView(location.hash.slice(1)||'gan');Pix.draw();T2I.draw();
+</script>
+</body></html>

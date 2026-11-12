@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en" data-explainer="diffusion">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script>try{if(window.frameElement&&window.frameElement.id==="frame")document.documentElement.classList.add("embedded")}catch(e){}</script>
+<title>Diffusion Explainer+: DDPM, Stable Diffusion and FLUX Explained with Interactive Visualization</title>
+<style>
+:root{
+  --bg:#f5f6f8; --ink:#1c2230; --muted:#5d6577; --line:#e3e6ec; --card:#fff;
+  --ddpm:#7a4fe0; --sd:#1f8a9e; --flux:#e0662b; --accent:#1f8a9e;
+  --txt:#3d7be0; --ref:#2a9d6f; --dec:#c2557a;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55}
+a{color:var(--accent)}
+header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.top-inner{max-width:1320px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;flex:1;min-width:280px}
+.logo{width:40px;height:40px;border-radius:10px;background:conic-gradient(from 200deg,var(--ddpm),var(--sd),var(--flux),var(--ddpm));display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px}
+.brand h1{font-size:19px;margin:0;letter-spacing:-.01em}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+nav.tabs{display:flex;gap:6px;background:#f0f2f5;padding:4px;border-radius:12px}
+nav.tabs button{border:0;background:transparent;padding:8px 16px;border-radius:9px;font:600 14px inherit;font-family:inherit;color:var(--muted);cursor:pointer}
+nav.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+nav.tabs button .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+main{max-width:1320px;margin:0 auto;padding:20px 24px 60px}
+.pane{display:none}.pane.on{display:block}
+.hero{display:flex;gap:18px;align-items:flex-start;margin:6px 0 16px;flex-wrap:wrap}
+.hero h2{margin:0 0 4px;font-size:26px;letter-spacing:-.02em}
+.hero .lead{margin:0;color:var(--muted);max-width:860px}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;color:#fff;margin-bottom:6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+.card h3{margin:0 0 10px;font-size:14px;letter-spacing:.01em;display:flex;align-items:center;gap:8px}
+.card h3 .num{width:22px;height:22px;border-radius:6px;color:#fff;display:grid;place-items:center;font-size:12px}
+.controls{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:flex-end;margin-bottom:14px}
+.controls label{display:flex;flex-direction:column;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);gap:5px}
+.controls select{font:500 14px inherit;font-family:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);max-width:520px}
+.controls .prompt-l select{min-width:360px}
+.controls input[type=range]{width:170px}
+.controls .gval{font:700 14px inherit;color:var(--ink);text-transform:none;letter-spacing:0}
+.controls .dis{opacity:.4}
+.arch{display:grid;grid-template-columns:minmax(230px,1fr) 26px minmax(420px,2.2fr) 26px minmax(250px,1.05fr);align-items:stretch;gap:0;margin-bottom:14px}
+.arrow{display:grid;place-items:center;color:#aab1bf;font-size:30px;font-weight:300}
+.stage{display:flex;flex-direction:column;min-width:0}
+.prompt-box{background:#f4f7fd;border:1px solid #dfe7f6;border-radius:9px;padding:9px 11px;font-size:14px;font-style:italic;margin-bottom:10px}
+.tokens{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.tok{font:600 11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:3px 6px;border-radius:5px;background:#e8effc;color:#2b4f99;white-space:nowrap}
+.tok.sp{background:#eceef2;color:#666}
+.tok.cl{background:#fbe9de;color:#9a4316}
+.shape{font:12px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);background:#f6f7f9;border-radius:7px;padding:7px 9px;margin-top:8px}
+.shape b{color:var(--ink)}
+canvas{display:block}
+canvas.px{image-rendering:pixelated;image-rendering:crisp-edges}
+.emb{width:100%;height:auto;border-radius:6px;border:1px solid var(--line)}
+.small{font-size:12px;color:var(--muted)}
+.ref-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.fig{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.fig canvas{width:100%;max-width:190px;aspect-ratio:1;border-radius:8px;border:1px solid var(--line);background:#111}
+.fig .cap{font-size:12px;font-weight:600}
+.fig .sub{font-size:11px;color:var(--muted);line-height:1.3}
+.tl{display:flex;align-items:center;gap:10px;margin:14px 0 6px}
+.tl input{flex:1}
+.play{width:38px;height:38px;border-radius:50%;border:0;color:#fff;font-size:15px;cursor:pointer;flex:none}
+.steplabel{font:600 13px ui-monospace,Menlo,Consolas,monospace;min-width:150px;text-align:right}
+.sched{width:100%;height:92px}
+.formula{font-family:"Cambria Math",Cambria,Georgia,serif;font-size:14.5px;background:#f7f8fa;border-radius:8px;padding:8px 10px;margin:8px 0 0;text-align:center}
+.out-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;flex:1;justify-content:center}
+.cv-out{width:100%;max-width:300px;aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:#111}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.grid .fig canvas{max-width:none}
+.grid .fig .cap{font-weight:600;font-size:12px}
+.grid .fig.sel canvas{outline:3px solid var(--accent);outline-offset:1px}
+.fwd-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.readout{font:12px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;margin-top:6px}
+.readout b{color:var(--ink)}
+details.about{background:#fffaf0;border:1px solid #f1e2bf;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13.5px}
+details.about summary{cursor:pointer;font-weight:700}
+details.about p{margin:8px 0 0}
+article.explain{max-width:900px;margin:34px auto 0}
+article.explain h2{font-size:24px;margin:34px 0 8px;letter-spacing:-.015em}
+article.explain h3{font-size:18px;margin:26px 0 6px}
+article.explain p,article.explain li{font-size:16px}
+.eq{font-family:"Cambria Math",Cambria,Georgia,serif;font-size:17px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:12px 0;text-align:center;overflow-x:auto}
+.callout{border-left:4px solid var(--accent);background:#fff;padding:10px 14px;border-radius:0 10px 10px 0;margin:14px 0}
+.diagram{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;margin:14px 0}
+.diagram svg{width:100%;height:auto;display:block}
+table.cmp{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;font-size:14px;border:1px solid var(--line)}
+table.cmp th,table.cmp td{padding:9px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.cmp th{background:#f3f5f8;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+table.cmp td:first-child{font-weight:600;white-space:nowrap}
+.section-wide{max-width:1100px;margin:40px auto 0}
+.refs li{font-size:14px;margin-bottom:4px}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:30px 20px 40px}
+.busy{opacity:.55;transition:opacity .15s}
+@media (max-width:1100px){
+  .arch{grid-template-columns:1fr}
+  .arrow{transform:rotate(90deg);height:28px}
+  .row2{grid-template-columns:1fr}
+  .controls .prompt-l select{min-width:0;width:100%}
+}
+@media (max-width:600px){.ref-grid{grid-template-columns:1fr 1fr 1fr;gap:6px}.grid{grid-template-columns:repeat(3,1fr)}main{padding:14px}}
+</style>
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="logo">∿</div>
+      <div>
+        <h1>Diffusion Explainer<span>+</span></h1>
+        <p>How generative diffusion turns noise into images: DDPM → Stable Diffusion → FLUX</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-m="ddpm"><span class="dot" style="background:var(--ddpm)"></span>Diffusion Model (DDPM)</button>
+      <button data-m="sd"><span class="dot" style="background:var(--sd)"></span>Stable Diffusion</button>
+      <button data-m="flux"><span class="dot" style="background:var(--flux)"></span>FLUX</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="panes"></div>
+  <div id="articles"></div>
+
+  <section class="section-wide" id="compare">
+    <h2 style="font-size:24px;letter-spacing:-.015em">From DDPM to FLUX at a glance</h2>
+    <table class="cmp">
+      <thead><tr><th></th><th>DDPM (2020)</th><th>Stable Diffusion 1.x (2022)</th><th>SDXL (2023)</th><th>SD 3 / 3.5 (2024)</th><th>FLUX.1 (2024)</th><th>FLUX.2 (2025)</th></tr></thead>
+      <tbody>
+        <tr><td>Where it denoises</td><td>Pixels</td><td>VAE latent, 4 ch, ÷8</td><td>VAE latent, 4 ch, ÷8</td><td>VAE latent, 16 ch, ÷8</td><td>VAE latent, 16 ch, ÷8, 2×2 patches</td><td>New VAE latent (open, Apache-2.0)</td></tr>
+        <tr><td>Denoiser</td><td>U-Net (~36M for CIFAR-10)</td><td>U-Net, ~860M</td><td>U-Net, ~2.6B</td><td>MMDiT, 2B–8B</td><td>Hybrid MMDiT: 19 double + 38 single-stream blocks, ~12B</td><td>MMDiT: 8 double + 48 single-stream blocks, 32B (dev)</td></tr>
+        <tr><td>Conditioning</td><td>None (unconditional) / class</td><td>CLIP ViT-L/14, 77 × 768, cross-attention</td><td>CLIP ViT-L + OpenCLIP ViT-bigG, 77 × 2048</td><td>CLIP-L + CLIP-G + T5-XXL, joint attention</td><td>T5-XXL tokens (≤512) + CLIP-L pooled vector</td><td>Mistral Small 3.1 (24B VLM), up to 10 reference images</td></tr>
+        <tr><td>Training objective</td><td>Predict noise ε</td><td>Predict noise ε (v in SD 2.x 768)</td><td>Predict noise ε</td><td>Rectified flow (velocity)</td><td>Rectified flow (velocity)</td><td>Rectified flow (velocity)</td></tr>
+        <tr><td>Typical sampling</td><td>1000 ancestral steps</td><td>20–50 steps (DDIM/PNDM/DPM++), CFG 7.5</td><td>25–50 steps, CFG 5–8</td><td>28–40 Euler steps, CFG 4–7</td><td>dev: ~28–50 steps, guidance 3.5 as input · schnell: 1–4 steps</td><td>dev: ~28–50 steps; klein: 4 steps</td></tr>
+        <tr><td>Native resolution</td><td>32² – 256²</td><td>512²</td><td>1024²</td><td>1024²</td><td>~0.1–2 MP</td><td>up to 4 MP</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section-wide refs" id="refs">
+    <h2 style="font-size:24px">References and further reading</h2>
+    <ol>
+      <li>Ho, Jain, Abbeel. <a href="https://arxiv.org/abs/2006.11239">Denoising Diffusion Probabilistic Models</a>. NeurIPS 2020.</li>
+      <li>Song, Meng, Ermon. <a href="https://arxiv.org/abs/2010.02502">Denoising Diffusion Implicit Models</a>. ICLR 2021.</li>
+      <li>Nichol, Dhariwal. <a href="https://arxiv.org/abs/2102.09672">Improved Denoising Diffusion Probabilistic Models</a>. ICML 2021.</li>
+      <li>Song et al. <a href="https://arxiv.org/abs/2011.13456">Score-Based Generative Modeling through SDEs</a>. ICLR 2021.</li>
+      <li>Ho, Salimans. <a href="https://arxiv.org/abs/2207.12598">Classifier-Free Diffusion Guidance</a>. 2022.</li>
+      <li>Rombach et al. <a href="https://arxiv.org/abs/2112.10752">High-Resolution Image Synthesis with Latent Diffusion Models</a>. CVPR 2022.</li>
+      <li>Radford et al. <a href="https://arxiv.org/abs/2103.00020">Learning Transferable Visual Models from Natural Language Supervision (CLIP)</a>. ICML 2021.</li>
+      <li>Podell et al. <a href="https://arxiv.org/abs/2307.01952">SDXL: Improving Latent Diffusion Models for High-Resolution Image Synthesis</a>. 2023.</li>
+      <li>Peebles, Xie. <a href="https://arxiv.org/abs/2212.09748">Scalable Diffusion Models with Transformers (DiT)</a>. ICCV 2023.</li>
+      <li>Liu, Gong, Liu. <a href="https://arxiv.org/abs/2209.03003">Flow Straight and Fast: Rectified Flow</a>. ICLR 2023. · Lipman et al. <a href="https://arxiv.org/abs/2210.02747">Flow Matching for Generative Modeling</a>. ICLR 2023.</li>
+      <li>Esser et al. <a href="https://arxiv.org/abs/2403.03206">Scaling Rectified Flow Transformers for High-Resolution Image Synthesis (SD3)</a>. ICML 2024.</li>
+      <li>Sauer et al. <a href="https://arxiv.org/abs/2403.12015">Fast High-Resolution Image Synthesis with Latent Adversarial Diffusion Distillation</a>. 2024.</li>
+      <li>Black Forest Labs. <a href="https://arxiv.org/abs/2506.15742">FLUX.1 Kontext: Flow Matching for In-Context Image Generation and Editing in Latent Space</a>. 2025.</li>
+      <li>Greenberg. <a href="https://arxiv.org/abs/2507.09595">Demystifying Flux Architecture</a>. 2025.</li>
+      <li>Black Forest Labs. <a href="https://bfl.ai/blog/flux-2">FLUX.2 announcement</a> (Nov 2025) · <a href="https://huggingface.co/blog/flux-2">Diffusers welcomes FLUX.2</a>.</li>
+      <li>Lee et al. <a href="https://arxiv.org/abs/2305.03509">Diffusion Explainer: Visual Explanation for Text-to-image Stable Diffusion</a>. 2023 · <a href="https://poloclub.github.io/diffusion-explainer/">live tool</a> (the inspiration for this page).</li>
+    </ol>
+  </section>
+</main>
+<footer>Diffusion Explainer+ · an educational page inspired by Polo Club's <a href="https://poloclub.github.io/diffusion-explainer/">Diffusion Explainer</a>. All computation runs live in your browser.</footer>
+
+<script>
+"use strict";
+/* =====================================================================
+   0. Utilities
+   ===================================================================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gaussRng(seed){const r=mulberry32(seed>>>0);let spare=null;return()=>{if(spare!==null){const s=spare;spare=null;return s}let u=0;while(u===0)u=r();const v=r();const m=Math.sqrt(-2*Math.log(u));spare=m*Math.sin(2*Math.PI*v);return m*Math.cos(2*Math.PI*v)}}
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+const J=(b,a,r)=>b+(r()-.5)*2*a;
+const hsl=(h,s,l,a=1)=>`hsla(${h},${s}%,${l}%,${a})`;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+/* =====================================================================
+   1. Procedural scene library (stand-in "training images")
+   ===================================================================== */
+let c, post=[];
+function G(x0,y0,x1,y1,stops){const g=c.createLinearGradient(x0,y0,x1,y1);stops.forEach((s,i)=>g.addColorStop(i/(stops.length-1),s));return g}
+function bg(...s){c.fillStyle=G(0,0,0,100,s);c.fillRect(0,0,100,100)}
+function band(y0,y1,...s){c.fillStyle=G(0,y0,0,y1,s);c.fillRect(0,y0,100,y1-y0)}
+function circ(x,y,r,f){c.fillStyle=f;c.beginPath();c.arc(x,y,Math.max(.01,r),0,Math.PI*2);c.fill()}
+function ell(x,y,rx,ry,f,rot=0){c.fillStyle=f;c.beginPath();c.ellipse(x,y,Math.abs(rx),Math.abs(ry),rot,0,Math.PI*2);c.fill()}
+function glow(x,y,r,col){const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(x-r,y-r,2*r,2*r)}
+function poly(f,...p){c.fillStyle=f;c.beginPath();c.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)c.lineTo(p[i],p[i+1]);c.closePath();c.fill()}
+function box(x,y,w,h,f){c.fillStyle=f;c.fillRect(x,y,w,h)}
+function line(x0,y0,x1,y1,s,w){c.strokeStyle=s;c.lineWidth=w;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke()}
+function txt(s,x,y,size,f,weight='bold',glowc,family='Arial, Helvetica, sans-serif'){c.font=`${weight} ${size}px ${family}`;c.textAlign='center';c.textBaseline='middle';if(glowc){c.shadowColor=glowc;c.shadowBlur=size*.9}c.fillStyle=f;c.fillText(s,x,y);c.shadowBlur=0;c.shadowColor='transparent'}
+function stars(r,n,maxY=60){for(let i=0;i<n;i++)circ(r()*100,r()*maxY,.25+r()*.6,`rgba(255,255,235,${.45+r()*.55})`)}
+function mountains(r,base,f,n=3,hmin=15,hmax=40,snow){const pts=[-5,100,-5,base];let x=-5;const w=110/n;const pk=[];for(let i=0;i<n;i++){const px=x+w*(.3+r()*.4),py=base-(hmin+r()*(hmax-hmin));pts.push(px,py);pk.push([px,py]);x+=w;pts.push(x,base-r()*8)}pts.push(105,100);poly(f,...pts);if(snow)pk.forEach(([px,py])=>{const s=(base-py)*.3;poly(snow,px,py,px-s*.85,py+s,px-s*.3,py+s*.75,px+s*.15,py+s*1.05,px+s*.8,py+s)})}
+function hills(r,y,f,amp=5,freq=15){const ph=r()*6;c.fillStyle=f;c.beginPath();c.moveTo(0,100);for(let x=0;x<=100;x+=2)c.lineTo(x,y+Math.sin(x/freq+ph)*amp);c.lineTo(100,100);c.closePath();c.fill()}
+function water(y,top,bot,r,lc='rgba(255,255,255,.25)'){band(y,100,top,bot);for(let i=0;i<14;i++){const yy=y+3+r()*(100-y-3),xx=r()*90;line(xx,yy,xx+4+r()*10,yy,lc,.5)}}
+function pine(x,y,h,f){box(x-h*.04,y-h*.15,h*.08,h*.15,'#4a3222');for(let k=0;k<3;k++){const yy=y-h*.12-k*h*.24,w=h*(.3-k*.07);poly(f,x-w,yy,x+w,yy,x,yy-h*.4)}}
+function roundTree(x,y,h,f){box(x-h*.06,y-h*.45,h*.12,h*.45,'#6b4423');circ(x,y-h*.62,h*.3,f);circ(x-h*.2,y-h*.48,h*.2,f);circ(x+h*.2,y-h*.48,h*.2,f)}
+function cloud(x,y,s,f='rgba(255,255,255,.92)'){circ(x,y,s,f);circ(x+s*.9,y+s*.2,s*.75,f);circ(x-s*.9,y+s*.25,s*.7,f);ell(x,y+s*.45,s*1.6,s*.45,f)}
+function house(x,y,w,h,wall,roof,win='#ffe28a'){box(x,y-h,w,h,wall);poly(roof,x-w*.12,y-h,x+w*1.12,y-h,x+w/2,y-h-w*.55);box(x+w*.14,y-h*.68,w*.24,h*.3,win);box(x+w*.58,y-h*.58,w*.24,h*.58,'#5a3a22')}
+function sun(x,y,r,f,g){glow(x,y,r*3.2,g);circ(x,y,r,f)}
+function moon(x,y,r){glow(x,y,r*3.5,'rgba(255,250,220,.35)');circ(x,y,r,'#fbf3d2');circ(x-r*.3,y-r*.2,r*.18,'rgba(200,190,160,.5)');circ(x+r*.3,y+r*.3,r*.13,'rgba(200,190,160,.5)')}
+function balloon(x,y,r,f1,f2){ell(x,y,r,r*1.15,f1);ell(x,y,r*.42,r*1.15,f2);line(x-r*.5,y+r*.95,x-r*.2,y+r*1.6,'#553',.4);line(x+r*.5,y+r*.95,x+r*.2,y+r*1.6,'#553',.4);box(x-r*.25,y+r*1.55,r*.5,r*.35,'#7a5230')}
+function palm(x,y,h,f,trunk='#5b3b1f'){c.strokeStyle=trunk;c.lineWidth=h*.06;c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+h*.15,y-h*.5,x+h*.05,y-h);c.stroke();const tx=x+h*.05,ty=y-h;for(let k=0;k<6;k++){const a=-Math.PI+k*Math.PI/5;c.strokeStyle=f;c.lineWidth=h*.05;c.beginPath();c.moveTo(tx,ty);c.quadraticCurveTo(tx+Math.cos(a)*h*.3,ty+Math.sin(a)*h*.3-h*.08,tx+Math.cos(a)*h*.45,ty+Math.sin(a)*h*.4+h*.14);c.stroke()}}
+function lighthouse(x,y,h){const w=h*.17;const wf=t=>w-w*.4*((y-t)/h);poly('#f1f1f1',x-w,y,x+w,y,x+w*.6,y-h,x-w*.6,y-h);for(let k=0;k<3;k++){const y0=y-h*(.12+k*.3),y1=y0-h*.13;poly('#d0312d',x-wf(y0),y0,x+wf(y0),y0,x+wf(y1),y1,x-wf(y1),y1)}glow(x,y-h-h*.07,h*.6,'rgba(255,240,150,.85)');box(x-w*.7,y-h-h*.13,w*1.4,h*.13,'#ffe98a');poly('#333',x-w*.85,y-h-h*.13,x+w*.85,y-h-h*.13,x,y-h-h*.26)}
+function skyline(r,y,f,winc){let x=-2;while(x<100){const w=5+r()*9,h=12+r()*40;box(x,y-h,w,h+100-y,f);for(let wy=y-h+2;wy<y-1;wy+=3)for(let wx=x+1;wx<x+w-1;wx+=2.5)if(r()<.45)box(wx,wy,1.2,1.4,winc[(r()*winc.length)|0]);x+=w+r()*1.5}}
+function lantern(x,y,s,h){line(x,y-s*2.2,x,y-s*1.1,'#222',.3);glow(x,y,s*2.8,hsl(h,100,60,.5));ell(x,y,s*.85,s*1.1,hsl(h,90,55));ell(x,y,s*.35,s*1.05,hsl(h,100,72,.6));box(x-s*.4,y-s*1.25,s*.8,s*.25,'#c9a227');box(x-s*.4,y+s,s*.8,s*.25,'#c9a227')}
+function cat(x,y,s,f,eye){ell(x,y-s*.5,s*.55,s*.6,f);circ(x,y-s*1.22,s*.36,f);poly(f,x-s*.34,y-s*1.36,x-s*.27,y-s*1.78,x-s*.06,y-s*1.5);poly(f,x+s*.34,y-s*1.36,x+s*.27,y-s*1.78,x+s*.06,y-s*1.5);c.strokeStyle=f;c.lineWidth=s*.14;c.beginPath();c.moveTo(x+s*.45,y-s*.12);c.quadraticCurveTo(x+s*1.1,y-s*.1,x+s*.95,y-s*.8);c.stroke();if(eye){circ(x-s*.13,y-s*1.25,s*.07,eye);circ(x+s*.13,y-s*1.25,s*.07,eye)}}
+function rocket(x,y,s){glow(x,y+s*1.7,s*2.4,'rgba(255,170,60,.85)');poly('#ffb02e',x-s*.3,y+s*.9,x+s*.3,y+s*.9,x,y+s*2.4);poly('#fff36b',x-s*.15,y+s*.9,x+s*.15,y+s*.9,x,y+s*1.7);box(x-s*.35,y-s*.9,s*.7,s*1.8,'#e9edf2');poly('#d64045',x-s*.35,y-s*.9,x+s*.35,y-s*.9,x,y-s*1.75);poly('#d64045',x-s*.35,y+s*.35,x-s*.8,y+s*1.0,x-s*.35,y+s*.9);poly('#d64045',x+s*.35,y+s*.35,x+s*.8,y+s*1.0,x+s*.35,y+s*.9);circ(x,y-s*.3,s*.18,'#4aa3df')}
+function pagoda(x,y,s,wall,roof){for(let k=0;k<4;k++){const w=s*(1-k*.17),yy=y-k*s*.55;box(x-w*.33,yy-s*.42,w*.66,s*.42,wall);poly(roof,x-w*.72,yy-s*.36,x+w*.72,yy-s*.36,x+w*.42,yy-s*.6,x-w*.42,yy-s*.6)}line(x,y-2.2*s+s*.0,x,y-2.75*s,roof,s*.06)}
+function cactus(x,y,h,f){c.strokeStyle=f;c.lineCap='round';c.lineWidth=h*.17;c.beginPath();c.moveTo(x,y);c.lineTo(x,y-h);c.moveTo(x,y-h*.42);c.lineTo(x-h*.28,y-h*.42);c.lineTo(x-h*.28,y-h*.72);c.moveTo(x,y-h*.58);c.lineTo(x+h*.25,y-h*.58);c.lineTo(x+h*.25,y-h*.84);c.stroke();c.lineCap='butt'}
+function pyramid(x,y,w,f,sh){poly(f,x-w/2,y,x+w/2,y,x,y-w*.62);poly(sh,x,y-w*.62,x+w/2,y,x+w*.1,y)}
+function flower(x,y,r,petal,center,stem=true){if(stem)line(x,y,x,100,'#3d8b37',r*.22);for(let k=0;k<6;k++){const a=k*Math.PI/3;ell(x+Math.cos(a)*r*.68,y+Math.sin(a)*r*.68,r*.55,r*.3,petal,a)}circ(x,y,r*.38,center)}
+function fish(x,y,s,f,dir=1){poly(f,x-dir*s*.8,y,x-dir*s*1.55,y-s*.55,x-dir*s*1.55,y+s*.55);ell(x,y,s,s*.56,f);ell(x+dir*s*.1,y+s*.15,s*.6,s*.2,'rgba(255,255,255,.25)');circ(x+dir*s*.52,y-s*.12,s*.13,'#fff');circ(x+dir*s*.56,y-s*.12,s*.07,'#111')}
+function sailboat(x,y,s,sail,hull){poly(hull,x-s,y,x+s,y,x+s*.7,y+s*.35,x-s*.7,y+s*.35);line(x,y,x,y-s*1.6,'#5a3a1a',s*.06);poly(sail,x+s*.05,y-s*1.55,x+s*.05,y-s*.1,x+s*.85,y-s*.1);poly(sail,x-s*.05,y-s*1.3,x-s*.05,y-s*.1,x-s*.7,y-s*.1)}
+function snowman(x,y,s,scarf){circ(x,y-s*.55,s*.62,'#fbfbfb');circ(x,y-s*1.42,s*.45,'#fbfbfb');circ(x,y-s*2.05,s*.32,'#fbfbfb');box(x-s*.38,y-s*1.83,s*.76,s*.13,scarf);poly('#f08a24',x,y-s*2.07,x+s*.36,y-s*2.0,x,y-s*1.98);circ(x-s*.1,y-s*2.15,s*.04,'#222');circ(x+s*.1,y-s*2.15,s*.04,'#222');box(x-s*.24,y-s*2.68,s*.48,s*.32,'#222');box(x-s*.38,y-s*2.39,s*.76,s*.06,'#222');circ(x,y-s*1.4,s*.05,'#222');circ(x,y-s*1.22,s*.05,'#222')}
+function sphere(x,y,r,h){ell(x+r*.2,y+r*.95,r*.95,r*.22,'rgba(0,0,0,.25)');const g=c.createRadialGradient(x-r*.35,y-r*.35,r*.08,x,y,r);g.addColorStop(0,hsl(h,90,82));g.addColorStop(.5,hsl(h,80,50));g.addColorStop(1,hsl(h,85,20));c.fillStyle=g;c.beginPath();c.arc(x,y,r,0,7);c.fill()}
+function whale(x,y,s,f){poly(f,x-s*1.3,y,x-s*2.3,y-s*.65,x-s*2.05,y,x-s*2.3,y+s*.55);ell(x,y,s*1.6,s*.62,f);ell(x+s*.5,y+s*.28,s*.95,s*.28,'rgba(225,235,245,.45)');circ(x+s*1.0,y-s*.1,s*.07,'#111');ell(x+s*.1,y+s*.62,s*.45,s*.12,f,.5)}
+function aurora(r,h1,h2){for(let k=0;k<5;k++){c.fillStyle=G(0,8,0,60,[hsl(h1,90,60,0),hsl(k%2?h1:h2,95,62,.42),hsl(h2,90,50,0)]);c.beginPath();const ph=r()*6,amp=4+r()*6,yb=10+k*5;c.moveTo(0,yb);for(let x=0;x<=100;x+=4)c.lineTo(x,yb+Math.sin(x/12+ph)*amp);for(let x=100;x>=0;x-=4)c.lineTo(x,yb+26+Math.sin(x/12+ph)*amp);c.closePath();c.fill()}}
+function rainbow(x,y,R,a=.7){const cols=['#e53935','#fb8c00','#fdd835','#43a047','#1e88e5','#5e35b1'];cols.forEach((col,i)=>{c.strokeStyle=col;c.globalAlpha=a;c.lineWidth=R*.06;c.beginPath();c.arc(x,y,R-i*R*.06,Math.PI,0);c.stroke()});c.globalAlpha=1}
+function sunflower(x,y,r){line(x,y,x,100,'#3f7d2a',r*.25);ell(x+r*.5,y+r*1.6,r*.5,r*.22,'#4b8f33',-.4);for(let k=0;k<12;k++){const a=k*Math.PI/6;ell(x+Math.cos(a)*r*.75,y+Math.sin(a)*r*.75,r*.45,r*.18,'#f9c80e',a)}circ(x,y,r*.48,'#6b3e1d')}
+function mushroomHouse(x,y,s,cap){box(x-s*.45,y-s*1.05,s*.9,s*1.05,'#efe3c8');c.fillStyle=cap;c.beginPath();c.ellipse(x,y-s*1.0,s*1.3,s*.85,0,Math.PI,0);c.fill();[[-.6,-1.4,.14],[.2,-1.6,.18],[.7,-1.25,.12],[-.15,-1.2,.1]].forEach(([dx,dy,rr])=>circ(x+dx*s,y+dy*s,rr*s,'#fff6e8'));box(x-s*.15,y-s*.55,s*.3,s*.55,'#7a4b26');circ(x,y-s*.55,s*.15,'#7a4b26');glow(x+s*.28,y-s*.75,s*.45,'rgba(255,220,120,.7)');circ(x+s*.28,y-s*.75,s*.1,'#ffe08a')}
+function astronaut(x,y,s){box(x-s*.3,y-s*.55,s*.22,s*.55,'#e6e9ee');box(x+s*.08,y-s*.55,s*.22,s*.55,'#e6e9ee');box(x-s*.5,y-s*1.35,s*.25,s*.7,'#c9ced6');box(x-s*.35,y-s*1.45,s*.7,s*.95,'#f2f4f7');circ(x,y-s*1.75,s*.38,'#f2f4f7');ell(x+s*.07,y-s*1.75,s*.25,s*.19,'#d9a521');ell(x+s*.12,y-s*1.8,s*.1,s*.06,'rgba(255,255,255,.7)');line(x+s*.35,y-s*1.3,x+s*.75,y-s*1.0,'#f2f4f7',s*.18)}
+function brickWall(r){box(0,0,100,100,'#2b1d1a');for(let y=0;y<100;y+=5){const off=((y/5)%2)?5:0;for(let x=-off;x<100;x+=10)box(x+.4,y+.4,9.2,4.2,hsl(J(10,6,r),40,J(26,5,r)))}}
+function reflect(yU,alpha=.5){post.push((cv,S)=>{const x2=cv.getContext('2d');const Y=Math.round(yU*S/100);const im=x2.getImageData(0,0,S,S),d=im.data;for(let y=Y;y<S;y++){const sy=2*Y-y-1;if(sy<0)break;const wob=Math.round(Math.sin(y*1.3)*S/128);for(let x=0;x<S;x++){const xo=clamp(x+wob,0,S-1);const i=(y*S+x)*4,j=(sy*S+xo)*4;for(let k=0;k<3;k++)d[i+k]=d[i+k]*(1-alpha)+d[j+k]*alpha*.88}}x2.putImageData(im,0,0)})}
+
+function renderScene(draw,seed,S,flip){const cv=document.createElement('canvas');cv.width=cv.height=S;c=cv.getContext('2d');post=[];c.save();c.scale(S/100,S/100);if(flip){c.translate(100,0);c.scale(-1,1)}draw(mulberry32(seed));c.restore();post.forEach(fn=>fn(cv,S));const d=cv.getContext('2d').getImageData(0,0,S,S).data;const out=new Float32Array(S*S*3);for(let i=0,j=0;i<d.length;i+=4){out[j++]=d[i]/127.5-1;out[j++]=d[i+1]/127.5-1;out[j++]=d[i+2]/127.5-1}return out}
+
+/* ---------- 10 examples per method ---------- */
+const DDPM_EX=[
+ {t:'sunset',draw:r=>{const h=J(22,10,r);bg(hsl(h+245,45,28),hsl(h+300,55,48),hsl(h,95,62));const sx=J(50,20,r),hz=J(63,5,r);sun(sx,hz-2,J(10,3,r),hsl(h+25,100,72),hsl(h+15,100,60,.6));water(hz,hsl(h+230,40,36),hsl(h+240,50,14),r);box(sx-9,hz+2,18,1.3,hsl(h+25,100,72,.7));box(sx-5,hz+5,10,1,hsl(h+25,100,72,.5))}},
+ {t:'mountain',draw:r=>{bg(hsl(J(205,10,r),70,J(62,8,r)),hsl(200,60,88));mountains(r,J(76,5,r),hsl(J(225,15,r),22,J(42,8,r)),3,25,48,'#f3f6fa');hills(r,J(84,3,r),hsl(J(110,15,r),40,J(35,6,r)),3)}},
+ {t:'house',draw:r=>{bg(hsl(205,75,J(70,8,r)),hsl(195,70,90));sun(J(80,8,r),J(18,5,r),6,'#fff3b0','rgba(255,240,170,.5)');band(J(76,3,r),100,hsl(J(105,15,r),50,45),hsl(105,45,30));house(J(32,10,r),J(84,2,r),J(36,6,r),J(26,4,r),hsl(J(40,20,r),60,80),hsl(J(5,10,r),65,45))}},
+ {t:'tree',draw:r=>{bg(hsl(200,70,J(75,8,r)),hsl(190,60,92));cloud(J(25,10,r),J(18,5,r),5);band(80,100,hsl(J(100,15,r),45,48),hsl(100,40,30));roundTree(J(50,10,r),86,J(62,8,r),hsl(J(115,20,r),50,J(34,6,r)))}},
+ {t:'moonlit night',draw:r=>{bg(hsl(J(230,10,r),55,8),hsl(235,45,26));stars(r,45,70);moon(J(65,18,r),J(28,8,r),J(9,2,r));hills(r,J(78,4,r),hsl(230,30,12),6,18);pine(J(20,8,r),90,22,hsl(230,30,8));pine(J(82,6,r),92,18,hsl(230,30,8))}},
+ {t:'sailboat',draw:r=>{bg(hsl(J(200,10,r),75,68),hsl(195,60,90));cloud(J(70,15,r),J(20,5,r),5);water(60,hsl(J(205,10,r),65,45),hsl(215,70,22),r);sailboat(J(50,15,r),63,J(16,3,r),'#fbfbf5',hsl(J(10,20,r),60,40))}},
+ {t:'flower',draw:r=>{const h=J(320,40,r);bg(hsl(h+180,40,90),hsl(h+160,35,80));line(50,60,38,72,'#3d8b37',3);ell(38,76,7,3,'#4d9b42',-.6);flower(J(50,6,r),J(42,6,r),J(19,3,r),hsl(h,75,62),'#ffd23f')}},
+ {t:'fish',draw:r=>{bg(hsl(J(195,10,r),70,55),hsl(210,75,20));for(let i=0;i<6;i++){c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=.6;c.beginPath();c.arc(J(70,25,r),J(40,30,r),1+r()*2,0,7);c.stroke()}for(let i=0;i<4;i++){const x=10+r()*80;c.strokeStyle=hsl(130,45,35);c.lineWidth=2.4;c.beginPath();c.moveTo(x,100);c.quadraticCurveTo(x+6,85,x,70+r()*10);c.stroke()}fish(J(50,10,r),J(48,10,r),J(17,3,r),hsl(J(25,15,r),90,56),r()<.5?1:-1)}},
+ {t:'hot air balloon',draw:r=>{bg(hsl(J(205,15,r),70,62),hsl(30,80,88));cloud(J(20,10,r),J(70,8,r),6);cloud(J(80,10,r),J(25,8,r),4);const h=J(0,40,r)+360;balloon(J(50,12,r),J(40,8,r),J(17,3,r),hsl(h,80,55),hsl(h+45,85,62))}},
+ {t:'snowman',draw:r=>{bg(hsl(J(215,10,r),25,J(65,8,r)),hsl(210,30,88));for(let i=0;i<40;i++)circ(r()*100,r()*80,.5+r()*.6,'rgba(255,255,255,.85)');hills(r,J(78,3,r),'#eef3f8',3);snowman(J(50,10,r),90,J(14,2,r),hsl(J(0,20,r)+360,70,48))}},
+];
+const SD_EX=[
+ {t:'a cozy wooden cabin in a snowy pine forest at dusk',draw:r=>{bg(hsl(J(260,15,r),35,30),hsl(J(15,10,r),70,70));stars(r,12,35);mountains(r,62,hsl(250,20,45),3,15,30,'#e8e6f5');band(72,100,'#eef2f8','#c9d3e6');for(let i=0;i<6;i++)pine(r()*100,72+r()*10,18+r()*12,hsl(150,25,J(18,4,r)));const x=J(40,18,r);house(x,90,26,16,hsl(25,45,38),'#f4f4f4');glow(x+9,80,10,'rgba(255,200,90,.6)');pine(J(85,6,r),96,30,hsl(150,30,15))}},
+ {t:'a red lighthouse on a rocky cliff, stormy sea',draw:r=>{bg(hsl(J(215,10,r),15,J(30,6,r)),hsl(210,15,55));cloud(J(25,10,r),J(14,4,r),9,'rgba(70,75,85,.85)');cloud(J(75,10,r),J(20,4,r),8,'rgba(90,95,105,.8)');water(62,hsl(205,25,35),hsl(210,30,15),r,'rgba(255,255,255,.45)');const cx=J(62,10,r);poly(hsl(25,10,22),cx-28,100,cx-18,70,cx-6,62,cx+10,60,cx+22,66,cx+32,100);lighthouse(cx+2,61,J(36,4,r))}},
+ {t:'a hot air balloon festival over green hills, morning',draw:r=>{bg(hsl(J(200,10,r),70,72),hsl(40,85,88));sun(J(18,6,r),J(24,4,r),5,'#fff6c8','rgba(255,240,180,.6)');hills(r,72,hsl(110,35,55),5,20);hills(r,82,hsl(105,45,40),4,14);for(let i=0;i<5;i++){const h=(r()*360)|0;balloon(10+i*20+J(0,4,r),J(36,16,r),J(7,2,r),hsl(h,80,55),hsl(h+50,85,62))}}},
+ {t:'a futuristic city skyline at night with neon lights',draw:r=>{bg(hsl(J(265,15,r),60,8),hsl(J(300,20,r),60,28));stars(r,15,30);glow(J(50,20,r),70,45,'rgba(255,60,200,.25)');skyline(r,82,hsl(250,40,10),['#ff3fb4','#3ff0ff','#ffd93f','#9d7bff']);for(let i=0;i<3;i++)line(0,J(60,10,r),100,J(60,10,r),hsl(r()<.5?320:185,100,60,.7),.6);band(82,100,hsl(260,50,12),hsl(280,60,5));reflect(82,.55)}},
+ {t:'a lone palm tree on a tropical island at sunset',draw:r=>{const h=J(28,8,r);bg(hsl(h+270,40,32),hsl(h+330,60,55),hsl(h,95,62));sun(J(62,15,r),62,J(9,2,r),hsl(h+25,100,72),hsl(h+20,100,62,.55));water(64,hsl(h+230,35,40),hsl(240,45,15),r);const ix=J(42,10,r);ell(ix,68,20,4,hsl(35,45,30));palm(ix-4,68,J(36,4,r),hsl(140,40,14),hsl(30,40,12))}},
+ {t:'a traditional Vietnamese lantern street in Hoi An at night',draw:r=>{bg(hsl(J(225,10,r),55,12),hsl(240,40,26));for(let i=0;i<4;i++){const x=i*26-2+J(0,3,r);box(x,48,24,34,hsl(45,75,J(52,5,r)));poly(hsl(15,45,25),x-2,48,x+26,48,x+20,40,x+4,40);box(x+5,58,6,10,'rgba(255,210,120,.9)');box(x+14,60,5,22,'#3b2414')}for(let s=0;s<2;s++){const y=14+s*14;c.strokeStyle='rgba(20,20,20,.8)';c.lineWidth=.4;c.beginPath();c.moveTo(0,y);c.quadraticCurveTo(50,y+8,100,y);c.stroke();for(let x=6;x<100;x+=11){const yy=y+8*(1-Math.pow((x-50)/50,2))*.5+3;lantern(x,yy+3,J(3,.6,r),[0,20,45,330,280][(r()*5)|0])}}band(82,100,hsl(230,45,16),hsl(230,50,8));reflect(82,.55)}},
+ {t:'a cute orange cat sitting on a windowsill under the moon',draw:r=>{box(0,0,100,100,hsl(J(30,10,r),25,20));box(14,8,72,62,G(0,8,0,70,[hsl(225,55,12),hsl(240,40,30)]));c.fillStyle=G(0,8,0,70,[hsl(225,55,12),hsl(240,40,30)]);c.fillRect(14,8,72,62);stars(r,10,40);moon(J(66,8,r),J(24,5,r),7);line(50,8,50,70,hsl(30,25,30),2);line(14,39,86,39,hsl(30,25,30),2);box(8,70,84,6,hsl(30,35,42));box(0,76,100,24,hsl(30,22,24));cat(J(42,8,r),70,J(17,2,r),hsl(J(28,6,r),90,52),'#7fe07a')}},
+ {t:'a rocket launching into a starry sky',draw:r=>{bg(hsl(J(235,10,r),60,6),hsl(240,50,22));stars(r,70,90);glow(J(25,15,r),J(25,10,r),14,'rgba(150,120,255,.25)');const x=J(50,10,r);for(let i=0;i<7;i++)circ(x+J(0,16,r),92+J(0,4,r),5+r()*5,'rgba(220,220,230,.9)');rocket(x,J(48,8,r),J(9,1.5,r))}},
+ {t:'an ancient pagoda beside a calm lake with cherry blossoms',draw:r=>{bg(hsl(J(200,10,r),45,80),hsl(20,70,90));mountains(r,62,hsl(210,20,72),3,10,22);band(66,100,hsl(205,40,62),hsl(210,45,45));const px=J(35,8,r);pagoda(px,66,J(14,2,r),hsl(10,50,40),hsl(0,10,22));for(let i=0;i<70;i++)circ(J(80,15,r),J(24,14,r),1+r()*2.2,hsl(J(340,10,r),80,J(84,6,r)));line(100,30,72,26,'#4a3022',1.2);reflect(66,.5)}},
+ {t:'a desert with cacti and pyramids under a blazing sun',draw:r=>{bg(hsl(J(25,10,r),85,72),hsl(45,90,85));sun(J(74,10,r),J(20,5,r),J(8,2,r),'#fffbe3','rgba(255,230,140,.7)');pyramid(J(40,8,r),68,J(34,4,r),hsl(38,60,62),hsl(32,50,48));pyramid(J(66,6,r),68,J(22,3,r),hsl(38,60,64),hsl(32,50,50));hills(r,68,hsl(38,65,66),2,22);hills(r,82,hsl(34,60,58),3,16);cactus(J(16,5,r),92,J(22,3,r),hsl(115,35,32));cactus(J(86,5,r),96,J(15,3,r),hsl(115,35,30))}},
+];
+const FLUX_EX=[
+ {t:'a neon sign that says "FLUX" on a brick wall',noFlip:true,draw:r=>{brickWall(r);const h=J(320,25,r);glow(50,50,40,hsl(h,100,55,.35));txt('FLUX',50,50,J(27,2,r),'#fff3fb','bold',hsl(h,100,60));txt('FLUX',50,50,J(27,0,r),'rgba(255,255,255,0)','bold',hsl(h,100,60));c.font='bold 27px Arial, Helvetica, sans-serif';c.strokeStyle=hsl(h,100,65);c.lineWidth=.8;c.strokeText('FLUX',50,50);line(18,68,82,68,hsl(h+180,100,60,.8),.8)}},
+ {t:'a latte with heart latte art on a wooden table, top-down view',draw:r=>{for(let i=0;i<8;i++)box(0,i*12.5,100,12.5,hsl(28,45,J(36,6,r)));for(let i=0;i<30;i++)line(r()*100,r()*100,r()*100+12,0+r()*100,'rgba(60,30,10,.12)',.4);const x=J(48,6,r),y=J(50,6,r),R=J(19,2,r);ell(x+2,y+3,R*1.45,R*1.45,'rgba(0,0,0,.28)');circ(x,y,R*1.42,'#f6f3ee');ell(x+R*1.65,y,R*.38,R*.22,'#f6f3ee');circ(x,y,R,hsl(28,50,J(36,4,r)));c.fillStyle='#f4e6d2';c.beginPath();c.moveTo(x,y+R*.6);c.bezierCurveTo(x-R*.95,y-R*.05,x-R*.42,y-R*.72,x,y-R*.25);c.bezierCurveTo(x+R*.42,y-R*.72,x+R*.95,y-R*.05,x,y+R*.6);c.fill()}},
+ {t:'three spheres: a red one on the left, a green one in the middle, a blue one on the right',noFlip:true,draw:r=>{bg(hsl(J(40,10,r),15,90),hsl(40,10,70));band(62,100,hsl(40,10,78),hsl(40,8,60));sphere(J(20,3,r),58,J(11,2,r),0);sphere(50,J(56,3,r),J(12,2,r),125);sphere(J(80,3,r),58,J(11,2,r),220)}},
+ {t:'a humpback whale swimming beneath a small boat, underwater view',draw:r=>{bg(hsl(195,70,J(60,6,r)),hsl(210,80,14));band(0,14,hsl(190,60,80),hsl(195,65,62));const bx=J(55,15,r);poly('#3a2a20',bx-12,13,bx+12,13,bx+8,17,bx-8,17);for(let i=0;i<5;i++){c.fillStyle='rgba(255,255,255,.07)';c.beginPath();const x=10+i*20+J(0,5,r);c.moveTo(x,14);c.lineTo(x+5,14);c.lineTo(x+20,100);c.lineTo(x+8,100);c.fill()}whale(J(48,8,r),J(62,6,r),J(15,2,r),hsl(210,30,J(22,4,r)))}},
+ {t:'a mountain lake reflecting the aurora borealis',draw:r=>{bg(hsl(J(225,10,r),60,6),hsl(215,50,18));stars(r,40,55);aurora(r,J(140,15,r),J(175,25,r));mountains(r,60,hsl(220,30,10),4,10,24);band(62,100,hsl(215,40,14),hsl(220,50,6));reflect(62,.7);pine(J(12,5,r),70,16,'#05080c');pine(J(90,5,r),72,14,'#05080c')}},
+ {t:'a chalkboard with the equation "E = mc²" written on it',noFlip:true,draw:r=>{box(0,0,100,100,hsl(30,20,J(78,6,r)));box(8,14,84,62,hsl(30,45,30));box(11,17,78,56,hsl(J(150,10,r),30,J(20,4,r)));for(let i=0;i<12;i++)line(14+r()*70,20+r()*50,18+r()*70,22+r()*50,'rgba(255,255,255,.06)',3);txt('E = mc²',50,45,J(17,1.5,r),'rgba(250,250,245,.95)','bold',null,'Georgia, serif');box(14,76,72,4,hsl(30,40,36));box(J(30,8,r),73.5,8,2.6,'#f5f5f0')}},
+ {t:'a rainbow over a field of sunflowers',draw:r=>{bg(hsl(J(205,10,r),70,64),hsl(200,60,88));rainbow(J(50,10,r),78,J(46,5,r),.65);cloud(J(15,8,r),J(30,6,r),5);band(70,100,hsl(105,45,40),hsl(95,50,22));for(let i=0;i<9;i++)sunflower(5+i*11+J(0,2,r),J(80,5,r),J(4.5,1,r))}},
+ {t:'a giant mushroom house in a fantasy forest with fireflies',draw:r=>{bg(hsl(J(250,15,r),40,14),hsl(170,35,22));for(let i=0;i<5;i++){const x=r()*100;box(x,0,4+r()*4,100,hsl(160,20,J(10,3,r)))}band(78,100,hsl(130,30,22),hsl(130,35,10));mushroomHouse(J(50,8,r),86,J(20,2,r),hsl(J(0,10,r)+360,75,45));for(let i=0;i<22;i++){const x=r()*100,y=20+r()*65;glow(x,y,3,'rgba(255,240,120,.8)');circ(x,y,.5,'#fffbd0')}}},
+ {t:'an astronaut planting a flag on a red planet, Earth in the sky',draw:r=>{bg('#03030a','#14121f');stars(r,60,70);const ex=J(75,10,r),ey=J(20,5,r);circ(ex,ey,9,'#2f6fd6');ell(ex-2,ey-1,4,3,'#3d9a4a',.4);ell(ex+3,ey+3,3,2,'#3d9a4a');glow(ex,ey,14,'rgba(90,150,255,.3)');hills(r,J(72,3,r),hsl(12,60,40),5,20);hills(r,84,hsl(14,55,32),3,12);const ax=J(40,8,r);astronaut(ax,84,J(14,1.5,r));line(ax+11,84,ax+11,52,'#ddd',.8);box(ax+11,52,13,8,hsl(J(210,30,r),70,50))}},
+ {t:'a conical hat (nón lá) resting on green rice terraces',draw:r=>{bg(hsl(J(200,10,r),55,78),hsl(190,40,92));mountains(r,48,hsl(160,20,60),3,8,18);for(let i=0;i<7;i++){const y=46+i*8;c.fillStyle=hsl(J(95,12,r),55,J(36+i*2,4,r));c.beginPath();c.moveTo(0,100);c.lineTo(0,y);for(let x=0;x<=100;x+=4)c.lineTo(x,y+Math.sin(x/18+i)*3);c.lineTo(100,100);c.fill();c.strokeStyle='rgba(255,255,220,.35)';c.lineWidth=.5;c.beginPath();for(let x=0;x<=100;x+=4)c.lineTo(x,y+Math.sin(x/18+i)*3);c.stroke()}const hx=J(52,10,r),hy=J(80,3,r),hs=J(16,2,r);ell(hx,hy+2,hs*1.05,hs*.22,'rgba(0,0,0,.25)');poly(hsl(42,55,78),hx-hs,hy,hx+hs,hy,hx,hy-hs*.75);poly(hsl(40,45,64),hx,hy-hs*.75,hx+hs,hy,hx+hs*.25,hy);for(let k=1;k<4;k++)line(hx-hs*k/4,hy-hs*.75*(1-k/4),hx+hs*k/4,hy-hs*.75*(1-k/4),'rgba(120,90,40,.35)',.3)}},
+];
+
+/* =====================================================================
+   2. Toy "VAE": linear encoders/decoders (4-ch SD-like, 16-ch FLUX-like)
+   ===================================================================== */
+// SD-1.5 latent->RGB approximation (as used for previews in ComfyUI); rows = latent channels
+const F4=[[0.3512,0.2297,0.3227],[0.3250,0.4974,0.2350],[-0.2829,0.1762,0.2721],[-0.2120,-0.2616,-0.7177]];
+const M34=[0,1,2].map(k=>[0,1,2,3].map(ch=>F4[ch][k]));
+function inv3(m){const[a,b,cc]=m[0],[d,e,f]=m[1],[g,h,i]=m[2];const A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g;const det=a*A+b*B+cc*C;return[[A/det,-(b*i-cc*h)/det,(b*f-cc*e)/det],[B/det,(a*i-cc*g)/det,-(a*f-cc*d)/det],[C/det,-(a*h-b*g)/det,(a*e-b*d)/det]]}
+const MMt=[0,1,2].map(i=>[0,1,2].map(j=>M34[i].reduce((s,v,k)=>s+v*M34[j][k],0)));const MMti=inv3(MMt);
+const PINV=[0,1,2,3].map(ch=>[0,1,2].map(k=>[0,1,2].reduce((s,j)=>s+M34[j][ch]*MMti[j][k],0)));
+const NULLV=(()=>{const det3=(m)=>m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])-m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])+m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]);const v=[0,1,2,3].map(ch=>{const sub=M34.map(row=>row.filter((_,j)=>j!==ch));return(ch%2?-1:1)*det3(sub)});const n=Math.hypot(...v);return v.map(x=>x/n)})();
+
+function blockStats(img,S,x0,y0,bs){let r=0,g=0,b=0,l=0,l2=0;const n=bs*bs;for(let y=y0;y<y0+bs;y++)for(let x=x0;x<x0+bs;x++){const i=(y*S+x)*3;r+=img[i];g+=img[i+1];b+=img[i+2];const L=.299*img[i]+.587*img[i+1]+.114*img[i+2];l+=L;l2+=L*L}r/=n;g/=n;b/=n;l/=n;return[r,g,b,Math.sqrt(Math.max(0,l2/n-l*l))]}
+function enc4(img,S){const H=S/8,z=new Float32Array(4*H*H);for(let by=0;by<H;by++)for(let bx=0;bx<H;bx++){const[r,g,b,sd]=blockStats(img,S,bx*8,by*8,8);const tex=2.5*sd-.3;for(let ch=0;ch<4;ch++)z[ch*H*H+by*H+bx]=PINV[ch][0]*r+PINV[ch][1]*g+PINV[ch][2]*b+NULLV[ch]*tex}return z}
+function dec4lin(z,H){const out=new Float32Array(H*H*3);for(let p=0;p<H*H;p++)for(let k=0;k<3;k++){let s=0;for(let ch=0;ch<4;ch++)s+=F4[ch][k]*z[ch*H*H+p];out[p*3+k]=s}return out}
+function enc16(img,S){const H=S/8,z=new Float32Array(16*H*H);for(let by=0;by<H;by++)for(let bx=0;bx<H;bx++)for(let sub=0;sub<4;sub++){const sy=sub>>1,sx=sub&1;const[r,g,b,sd]=blockStats(img,S,bx*8+sx*4,by*8+sy*4,4);const p=by*H+bx;z[(sub*3)*H*H+p]=r;z[(sub*3+1)*H*H+p]=g;z[(sub*3+2)*H*H+p]=b;z[(12+sub)*H*H+p]=2.5*sd-.3}return z}
+function dec16lin(z,H){const W=2*H,out=new Float32Array(W*W*3);for(let by=0;by<H;by++)for(let bx=0;bx<H;bx++)for(let sub=0;sub<4;sub++){const sy=sub>>1,sx=sub&1,p=by*H+bx,q=((2*by+sy)*W+(2*bx+sx))*3;for(let k=0;k<3;k++)out[q+k]=z[(sub*3+k)*H*H+p]}return out}
+function upsample(src,w,S){const out=new Float32Array(S*S*3);const sc=w/S;for(let y=0;y<S;y++){const fy=clamp((y+.5)*sc-.5,0,w-1);const y0=Math.floor(fy),y1=Math.min(w-1,y0+1),ty=fy-y0;for(let x=0;x<S;x++){const fx=clamp((x+.5)*sc-.5,0,w-1);const x0=Math.floor(fx),x1=Math.min(w-1,x0+1),tx=fx-x0;for(let k=0;k<3;k++){const a=src[(y0*w+x0)*3+k],b=src[(y0*w+x1)*3+k],cc=src[(y1*w+x0)*3+k],d=src[(y1*w+x1)*3+k];out[(y*S+x)*3+k]=(a*(1-tx)+b*tx)*(1-ty)+(cc*(1-tx)+d*tx)*ty}}}return out}
+
+/* =====================================================================
+   3. Noise schedules
+   ===================================================================== */
+const T=1000;
+function makeAB(kind){const ab=new Float64Array(T);let p=1;for(let i=0;i<T;i++){let b;if(kind==='linear')b=1e-4+(0.02-1e-4)*i/(T-1);else{const s=Math.sqrt(0.00085)+(Math.sqrt(0.012)-Math.sqrt(0.00085))*i/(T-1);b=s*s}p*=1-b;ab[i]=p}return ab}
+const AB={linear:makeAB('linear'),scaled:makeAB('scaled')};
+function fluxShift(t,mu){if(t<=0)return 0;if(t>=1)return 1;const e=Math.exp(mu);return e/(e+(1/t-1))}
+
+/* =====================================================================
+   4. Method configs
+   ===================================================================== */
+const METHODS={
+ ddpm:{id:'ddpm',color:'var(--ddpm)',hex:'#7a4fe0',badge:'Pixel-space diffusion',title:'Diffusion Model (DDPM)',
+   lead:'A diffusion model learns to reverse a gradual noising process. Starting from pure Gaussian noise, a U-Net repeatedly predicts the noise in the current image and removes a little of it, until a clean image appears. DDPM does all of this directly on pixels.',
+   S:64,space:'pixel',kind:'diffusion',sched:'linear',offset:1,examples:DDPM_EX,promptLabel:'Class label (10 examples)',
+   steps:[10,25,50,100,250],stepsDef:50,samplers:['DDPM ancestral (η = 1, stochastic)','DDIM (η = 0, deterministic)'],gMin:0,gMax:10,gStep:.5,gDef:3,
+   gGrid:[0,1,2,4,8],clip:true},
+ sd:{id:'sd',color:'var(--sd)',hex:'#1f8a9e',badge:'Latent diffusion · U-Net · CLIP',title:'Stable Diffusion',
+   lead:'Stable Diffusion runs the same denoising loop, but in the compressed latent space of a variational autoencoder (VAE), guided by a CLIP text encoder through cross-attention. Denoising a 4×64×64 latent instead of a 3×512×512 image makes text-to-image generation fast enough for a consumer GPU.',
+   S:128,space:'lat4',kind:'diffusion',sched:'scaled',offset:1,examples:SD_EX,promptLabel:'Prompt (10 examples)',
+   steps:[10,20,30,50,100],stepsDef:50,samplers:['DDIM (η = 0, deterministic)','DDPM ancestral (η = 1, stochastic)'],gMin:0,gMax:20,gStep:.5,gDef:7.5,
+   gGrid:[0,1,3,7.5,15]},
+ flux:{id:'flux',color:'var(--flux)',hex:'#e0662b',badge:'Rectified flow · MMDiT · T5 + CLIP',title:'FLUX',
+   lead:'FLUX.1 (Black Forest Labs, 2024) replaces the noise-predicting U-Net with a 12-billion-parameter multimodal diffusion transformer trained with rectified flow. It learns a velocity field that moves samples along nearly straight lines from noise to data, so a simple Euler solver needs few steps.',
+   S:128,space:'lat16',kind:'flow',examples:FLUX_EX,promptLabel:'Prompt (10 examples)',
+   variants:{dev:{steps:[4,8,16,28,50],stepsDef:28,gDef:3.5,mu:1.15},schnell:{steps:[1,2,4,8],stepsDef:4,gDef:1,mu:null}},
+   samplers:['FLUX.1 [dev]: guidance-distilled, Euler','FLUX.1 [schnell]: timestep-distilled, 1–4 steps'],gMin:1,gMax:10,gStep:.5,gDef:3.5,
+   gGrid:[1,2,3.5,6,10]},
+};
+const SEEDS=[42,0,1,7,123,777,2024,31337];
+const V=4; // training variants per example
+
+/* =====================================================================
+   5. Data building: render "training images", encode latents
+   ===================================================================== */
+function buildData(m){
+  const S=m.S;m.items=[];m.byPrompt=[];
+  m.examples.forEach((ex,pi)=>{m.byPrompt[pi]=[];for(let v=0;v<V;v++){const img=renderScene(ex.draw,hashStr(m.id+'|'+pi+'|'+v),S,!ex.noFlip&&(v%2===1));m.byPrompt[pi].push(m.items.length);m.items.push({pi,v,img})}});
+  m.all=m.items.map((_,i)=>i);
+  if(m.space==='pixel'){m.D=S*S*3;m.items.forEach(it=>it.lat=it.img);m.scale=1;m.shift=0}
+  else{
+    const H=S/8;m.H=H;m.C=m.space==='lat4'?4:16;m.D=m.C*H*H;
+    m.items.forEach(it=>{it.raw=m.C===4?enc4(it.img,S):enc16(it.img,S)});
+    let sum=0,sum2=0,n=0;m.items.forEach(it=>{for(const v of it.raw){sum+=v;sum2+=v*v;n++}});
+    const mean=sum/n,std=Math.sqrt(sum2/n-mean*mean);
+    m.shift=m.C===4?0:mean;m.scale=m.C===4?1/Math.sqrt(sum2/n):1/std;
+    m.items.forEach(it=>{it.lat=new Float32Array(m.D);for(let d=0;d<m.D;d++)it.lat[d]=(it.raw[d]-m.shift)*m.scale});
+  }
+  m.items.forEach(it=>{let s=0;for(const v of it.lat)s+=v*v;it.n2=s});
+}
+function linDecode(m,z,withShift){const raw=new Float32Array(m.D);for(let d=0;d<m.D;d++)raw[d]=z[d]/m.scale+(withShift?m.shift:0);if(m.C===4)return upsample(dec4lin(raw,m.H),m.H,m.S);return upsample(dec16lin(raw,m.H),2*m.H,m.S)}
+// Decoder used for display: linear decode, plus "detail" borrowed from the closest training latent when z is close to it
+function decode(m,z){
+  if(m.space==='pixel')return z;
+  const D=m.D,n=m.items.length,dist=new Float64Array(n);let dmin=Infinity;
+  for(let i=0;i<n;i++){const L=m.items[i].lat;let s=0;for(let d=0;d<D;d++){const e=z[d]-L[d];s+=e*e}dist[i]=s/D;if(dist[i]<dmin)dmin=dist[i]}
+  const lam=Math.exp(-dmin/0.06);const blurry=linDecode(m,z,true);if(lam<1e-3)return blurry;
+  const w=new Float64Array(n);let ws=0;for(let i=0;i<n;i++){w[i]=Math.exp(-(dist[i]-dmin)/0.01);ws+=w[i]}
+  const zb=new Float32Array(D),xb=new Float32Array(m.S*m.S*3);
+  for(let i=0;i<n;i++){const wi=w[i]/ws;if(wi<1e-6)continue;const L=m.items[i].lat,X=m.items[i].img;for(let d=0;d<D;d++)zb[d]+=wi*L[d];for(let d=0;d<X.length;d++)xb[d]+=wi*X[d]}
+  const res=new Float32Array(D);for(let d=0;d<D;d++)res[d]=z[d]-zb[d];const rr=linDecode(m,res,false);
+  const out=new Float32Array(xb.length);for(let d=0;d<out.length;d++)out[d]=lam*(xb[d]+rr[d])+(1-lam)*blurry[d];return out;
+}
+
+/* =====================================================================
+   6. The denoiser: exact posterior mean E[x0 | x_t] over the tiny training set
+   ===================================================================== */
+function x0hat(m,x,idxs,a,b2){
+  const D=m.D;let xx=0;for(let d=0;d<D;d++)xx+=x[d]*x[d];
+  const lw=new Float64Array(idxs.length);let mx=-Infinity;
+  for(let k=0;k<idxs.length;k++){const it=m.items[idxs[k]],L=it.lat;let dot=0;for(let d=0;d<D;d++)dot+=x[d]*L[d];lw[k]=-(xx-2*a*dot+a*a*it.n2)/(2*b2);if(lw[k]>mx)mx=lw[k]}
+  let s=0;for(let k=0;k<lw.length;k++){lw[k]=Math.exp(lw[k]-mx);s+=lw[k]}
+  const out=new Float32Array(D);for(let k=0;k<lw.length;k++){const w=lw[k]/s;if(w<1e-7)continue;const L=m.items[idxs[k]].lat;for(let d=0;d<D;d++)out[d]+=w*L[d]}
+  return out;
+}
+function predict(m,x,st,cond,g){
+  const D=m.D;const xc=x0hat(m,x,cond,st.a,st.b2);const xu=(g===1)?xc:x0hat(m,x,m.all,st.a,st.b2);
+  const x0=new Float32Array(D),pred=new Float32Array(D);const b=Math.sqrt(st.b2);
+  for(let d=0;d<D;d++){let v=xu[d]+g*(xc[d]-xu[d]);if(m.clip)v=clamp(v,-1,1);x0[d]=v;pred[d]=m.kind==='flow'?(x[d]-v)/st.t:(x[d]-st.a*v)/b}
+  return{x0,pred};
+}
+function schedule(m,o){
+  const sts=[];
+  if(m.kind==='flow'){const N=o.steps,mu=o.mu;const raw=[];for(let i=0;i<N;i++)raw.push(1-i/N);const sig=raw.map(t=>mu==null?t:fluxShift(t,mu));sig.push(0);for(let i=0;i<N;i++){const t=sig[i];sts.push({t,tn:sig[i+1],a:1-t,b2:t*t,label:`σ = ${t.toFixed(3)}`,sig:1-t,noi:t})}}
+  else{const ab=AB[m.sched],N=o.steps,ratio=Math.floor(T/N);const ts=[];for(let i=N-1;i>=0;i--)ts.push(Math.min(T-1,i*ratio+m.offset));for(let i=0;i<N;i++){const t=ts[i],a2=ab[t],ap=i+1<N?ab[ts[i+1]]:1;sts.push({t,a:Math.sqrt(a2),b2:1-a2,ab:a2,abp:ap,label:`timestep t = ${t}`,sig:Math.sqrt(a2),noi:Math.sqrt(1-a2)})}}
+  return sts;
+}
+function run(m,o){
+  const D=m.D,rng=gaussRng(o.seed*7919+101);let x=new Float32Array(D);for(let d=0;d<D;d++)x[d]=rng();
+  const cond=m.byPrompt[o.prompt],sts=schedule(m,o),xs=[x];
+  for(const st of sts){const{x0,pred}=predict(m,x,st,cond,o.g);const nx=new Float32Array(D);
+    if(m.kind==='flow'){const dt=st.tn-st.t;for(let d=0;d<D;d++)nx[d]=x[d]+dt*pred[d]}
+    else{const eta=o.eta,ap=st.abp,a2=st.ab;const sig=eta*Math.sqrt((1-ap)/(1-a2))*Math.sqrt(Math.max(0,1-a2/ap));const cdir=Math.sqrt(Math.max(0,1-ap-sig*sig)),sa=Math.sqrt(ap);for(let d=0;d<D;d++)nx[d]=sa*x0[d]+cdir*pred[d]+(sig>0?sig*rng():0)}
+    x=nx;xs.push(x)}
+  return{xs,sts,cond,g:o.g};
+}
+
+/* =====================================================================
+   7. Drawing helpers
+   ===================================================================== */
+function putRGB(cv,arr,S){cv.width=cv.height=S;const x2=cv.getContext('2d'),im=x2.createImageData(S,S),d=im.data;for(let i=0,j=0;i<S*S;i++,j+=3){d[i*4]=clamp((arr[j]+1)*127.5,0,255);d[i*4+1]=clamp((arr[j+1]+1)*127.5,0,255);d[i*4+2]=clamp((arr[j+2]+1)*127.5,0,255);d[i*4+3]=255}x2.putImageData(im,0,0)}
+function putChannels(cv,z,C,H,range=2.5){const cols=C===4?2:4,rows=C/cols,gap=1,W=cols*H+(cols-1)*gap,Hh=rows*H+(rows-1)*gap;cv.width=W;cv.height=Hh;const x2=cv.getContext('2d');x2.fillStyle='#fff';x2.fillRect(0,0,W,Hh);const im=x2.getImageData(0,0,W,Hh),d=im.data;for(let ch=0;ch<C;ch++){const ox=(ch%cols)*(H+gap),oy=Math.floor(ch/cols)*(H+gap);for(let y=0;y<H;y++)for(let x=0;x<H;x++){const v=clamp((z[ch*H*H+y*H+x]/range+1)*127.5,0,255);const i=((oy+y)*W+ox+x)*4;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}}x2.putImageData(im,0,0)}
+function scaleShow(arr,s){const o=new Float32Array(arr.length);for(let i=0;i<arr.length;i++)o[i]=arr[i]*s;return o}
+
+/* ---------- tokenizers (illustrative) ---------- */
+function clipTokens(p){return p.toLowerCase().match(/[a-z]+|[0-9]|[^\sa-z0-9]/g)||[]}
+function t5Tokens(p){const out=[];(p.match(/[A-Za-z]+|[0-9]|[^\sA-Za-z0-9]/g)||[]).forEach((w,i)=>{if(w.length>7&&/^[A-Za-z]+$/.test(w)){out.push('▁'+w.slice(0,5));out.push(w.slice(5))}else out.push(/^[A-Za-z0-9]/.test(w)?'▁'+w:w)});return out}
+function drawEmb(cv,tokens,dims=48){const rows=Math.min(tokens.length,14);cv.width=dims*6;cv.height=rows*6;const x2=cv.getContext('2d');for(let r=0;r<rows;r++){const h=hashStr(tokens[r]);for(let k=0;k<dims;k++){const v=Math.sin(h*.0001+k*1.7+(h%97)*.13*k)*Math.cos(k*.37+(h%13));x2.fillStyle=v>0?`rgba(61,123,224,${Math.abs(v)})`:`rgba(224,102,43,${Math.abs(v)})`;x2.fillRect(k*6,r*6,6,6)}}}
+
+/* =====================================================================
+   8. Pane (one per method)
+   ===================================================================== */
+const ARROW='<div class="arrow">›</div>';
+function paneHTML(m){
+  const id=m.id;
+  const s1=id==='ddpm'?'Condition: class embedding':'Text Representation Generator';
+  const s2=id==='ddpm'?'Pixel-space Denoiser (U-Net)':id==='sd'?'Image Representation Refiner (U-Net in latent space)':'Image Representation Refiner (MMDiT, rectified flow)';
+  const s3=id==='ddpm'?'Output (already pixels: no decoder)':'Image Decoder (VAE)';
+  const predName=m.kind==='flow'?'Predicted velocity v̂':'Predicted noise ε̂';
+  const xName=m.space==='pixel'?'Current image x<sub>t</sub>':'Current latent z<sub>t</sub>';
+  const xSub=m.space==='pixel'?'3 × 64 × 64 pixels':m.space==='lat4'?'4 channels × 16 × 16 (real: 4 × 64 × 64)':'16 channels × 16 × 16 (real: 16 × 128 × 128)';
+  return `<div class="pane" id="pane-${id}">
+  <div class="hero"><div><span class="badge" style="background:${m.color}">${m.badge}</span><h2>${m.title}</h2><p class="lead">${m.lead}</p></div></div>
+  <details class="about"><summary>How this in-browser demo works (read me)</summary>
+    <p>A real ${m.title} checkpoint has billions of parameters and can't run on this page. Each of the 10 examples here instead comes with ${V} small, procedurally drawn "training images". The denoiser is the <b>mathematically optimal denoiser for that tiny training set</b>: the exact posterior mean E[x<sub>0</sub> | x<sub>t</sub>] (a softmax-weighted average of the training latents). Everything else follows the real method: the noise schedule, the sampler update, classifier-free guidance, the timestep shift, and the latent shapes.${m.space==='pixel'?'':' The toy VAE is a fixed linear map: '+(m.space==='lat4'?'4 channels per 8×8 block, using the published SD-1.5 latent-to-RGB preview coefficients':'16 channels per 8×8 block (2×2 sub-block colours and texture)')+'. For display, the decoder borrows fine detail from the nearest training image once the latent is close to it.'} An optimal denoiser for a finite dataset can only reproduce its training images; real networks generalise because they learn a smoother function. So read the outputs as illustrations of the <i>dynamics</i>, not of image quality.</p></details>
+  <div class="card controls">
+    <label class="prompt-l">${m.promptLabel}<select class="c-prompt"></select></label>
+    <label>Seed<select class="c-seed"></select></label>
+    <label class="g-l">Guidance scale <span><input type="range" class="c-g" min="${m.gMin}" max="${m.gMax}" step="${m.gStep}"> <span class="gval"></span></span></label>
+    <label>Sampling steps<select class="c-steps"></select></label>
+    <label>${m.kind==='flow'?'Model':'Sampler'}<select class="c-sampler"></select></label>
+  </div>
+  <div class="arch">
+    <div class="card stage"><h3><span class="num" style="background:var(--txt)">1</span>${s1}</h3>
+      <div class="prompt-box"></div><div class="tokens"></div><canvas class="emb px"></canvas><div class="small" style="margin-top:4px">${id==='ddpm'?'Learned class embedding, added to the timestep embedding (illustrative values)':'Token embeddings (first rows, first 48 dims, illustrative values)'}</div><div class="shape s-text"></div></div>
+    ${ARROW}
+    <div class="card stage"><h3><span class="num" style="background:var(--ref)">2</span>${s2}</h3>
+      <div class="ref-grid">
+        <div class="fig"><canvas class="cv-x px"></canvas><div class="cap">${xName}</div><div class="sub">${xSub}</div></div>
+        <div class="fig"><canvas class="cv-pred px"></canvas><div class="cap">${predName}</div><div class="sub">network output at this step${m.kind==='flow'?' (v = ε − x₀)':''}</div></div>
+        <div class="fig"><canvas class="cv-x0"></canvas><div class="cap">Predicted clean image x̂<sub>0</sub></div><div class="sub">${m.space==='pixel'?'what the model currently "sees"':'decoded from ẑ₀'}</div></div>
+      </div>
+      <div class="tl"><button class="play" style="background:${m.color}" title="Play">▶</button><input type="range" class="c-step" min="0" value="0"><span class="steplabel"></span></div>
+      <svg class="sched" viewBox="0 0 400 92" preserveAspectRatio="none"></svg>
+      <p class="formula"></p>
+    </div>
+    ${ARROW}
+    <div class="card stage"><h3><span class="num" style="background:var(--dec)">3</span>${s3}</h3>
+      <div class="out-wrap"><canvas class="cv-out ${m.space==='pixel'?'px':''}"></canvas><div class="small out-cap" style="text-align:center"></div></div>
+      <div class="shape s-out"></div></div>
+  </div>
+  <div class="row2">
+    <div class="card"><h3 class="g1-title">Compare guidance scales (same prompt and seed)</h3><div class="grid g-guid"></div><p class="small g1-note"></p></div>
+    <div class="card"><h3>Compare seeds (same prompt and guidance)</h3><div class="grid g-seed"></div><p class="small">The seed fixes the initial noise x<sub>T</sub> (and, for stochastic samplers, the noise added at every step). Different seeds lead to different images for the same prompt.</p></div>
+  </div>
+  <div class="row2">
+    <div class="card"><h3>Forward process explorer: add noise to a clean ${m.space==='pixel'?'image':'latent'}</h3>
+      <div class="fwd-row">
+        <div class="fig"><canvas class="f-clean ${m.space==='pixel'?'px':''}"></canvas><div class="cap">Clean x₀</div></div>
+        <div class="fig"><canvas class="f-lat px"></canvas><div class="cap">${m.space==='pixel'?'Noisy x<sub>t</sub>':'Noisy latent z<sub>t</sub>'}</div></div>
+        <div class="fig"><canvas class="f-dec"></canvas><div class="cap">${m.space==='pixel'?'Noise ε that was added':'Noisy latent, decoded'}</div></div>
+      </div>
+      <input type="range" class="f-t" style="width:100%" min="0" max="1000" value="400">
+      <div class="readout"></div>
+      <p class="formula f-formula"></p></div>
+    <div class="card cap-card"></div>
+  </div>
+</div>`;
+}
+
+class Pane{
+  constructor(m){this.m=m;this.built=false;this.timer=null;this.gridToken=0}
+  q(s){return this.el.querySelector(s)}
+  mount(host){host.insertAdjacentHTML('beforeend',paneHTML(this.m));this.el=document.getElementById('pane-'+this.m.id)}
+  ensure(){if(this.built)return;this.built=true;const m=this.m;buildData(m);
+    const sp=this.q('.c-prompt');m.examples.forEach((e,i)=>sp.add(new Option(`${i+1}. ${e.t}`,i)));
+    const ss=this.q('.c-seed');SEEDS.forEach(s=>ss.add(new Option(s,s)));
+    const sa=this.q('.c-sampler');m.samplers.forEach((s,i)=>sa.add(new Option(s,i)));
+    this.q('.c-g').value=m.gDef;this.fillSteps();
+    ['.c-prompt','.c-seed','.c-steps','.c-sampler'].forEach(s=>this.q(s).addEventListener('change',e=>{if(s==='.c-sampler'&&m.kind==='flow'){this.fillSteps();this.q('.c-g').value=this.variant().gDef}this.regen(true)}));
+    const g=this.q('.c-g');g.addEventListener('input',()=>this.q('.gval').textContent=(+g.value).toFixed(1));g.addEventListener('change',()=>this.regen(true));
+    this.q('.c-step').addEventListener('input',e=>{this.stop();this.show(+e.target.value)});
+    this.q('.play').addEventListener('click',()=>this.timer?this.stop():this.play());
+    this.q('.f-t').addEventListener('input',()=>this.updateFwd());
+    if(m.kind==='flow'){this.q('.f-t').max=1000}
+    this.renderCapCard();this.regen(true);
+  }
+  variant(){return this.m.kind==='flow'?this.m.variants[this.q('.c-sampler').value==='1'?'schnell':'dev']:null}
+  fillSteps(){const m=this.m,sel=this.q('.c-steps');sel.innerHTML='';const v=this.variant();const opts=v?v.steps:m.steps,def=v?v.stepsDef:m.stepsDef;opts.forEach(s=>sel.add(new Option(s,s)));sel.value=def;
+    const dis=v&&v.mu==null;this.q('.g-l').classList.toggle('dis',!!dis);this.q('.c-g').disabled=!!dis}
+  opts(over={}){const m=this.m,v=this.variant();const o={prompt:+this.q('.c-prompt').value,seed:+this.q('.c-seed').value,g:+this.q('.c-g').value,steps:+this.q('.c-steps').value,eta:0,mu:null};
+    if(m.kind==='flow'){o.mu=v.mu;if(v.mu==null)o.g=1}else{o.eta=(m.id==='ddpm')===(this.q('.c-sampler').value==='0')?1:0}
+    return Object.assign(o,over)}
+  regen(autoplay){this.stop();const m=this.m,o=this.opts();this.o=o;this.q('.gval').textContent=o.g.toFixed(1);
+    this.res=run(m,o);const N=this.res.sts.length;const sl=this.q('.c-step');sl.max=N;this.renderText();this.drawSched();
+    this.q('.prompt-box').textContent=m.id==='ddpm'?`class = "${m.examples[o.prompt].t}"`:`"${m.examples[o.prompt].t}"`;
+    this.renderShapes();this.updateFwd();this.buildGrids();
+    if(autoplay){this.show(0);this.play()}else this.show(N)}
+  play(){const N=this.res.sts.length;let k=+this.q('.c-step').value;if(k>=N)k=0;this.q('.play').textContent='❚❚';const dt=Math.max(40,Math.min(260,2400/N));this.show(k);this.timer=setInterval(()=>{k++;this.show(k);if(k>=N)this.stop()},dt)}
+  stop(){if(this.timer){clearInterval(this.timer);this.timer=null}const b=this.q('.play');if(b)b.textContent='▶'}
+  show(k){const m=this.m,r=this.res,N=r.sts.length;k=clamp(k,0,N);this.k=k;this.q('.c-step').value=k;const x=r.xs[k];
+    if(m.space==='pixel')putRGB(this.q('.cv-x'),x,m.S);else putChannels(this.q('.cv-x'),x,m.C,m.H);
+    if(k<N){const st=r.sts[k];const{x0,pred}=predict(m,x,st,r.cond,r.g);
+      if(m.space==='pixel')putRGB(this.q('.cv-pred'),scaleShow(pred,.5),m.S);else putChannels(this.q('.cv-pred'),pred,m.C,m.H);
+      putRGB(this.q('.cv-x0'),decode(m,x0),m.S);
+      this.q('.steplabel').textContent=`step ${k+1}/${N} · ${st.label}`}
+    else{const z=x;if(m.space==='pixel')putRGB(this.q('.cv-pred'),new Float32Array(m.D),m.S);else putChannels(this.q('.cv-pred'),new Float32Array(m.D),m.C,m.H);putRGB(this.q('.cv-x0'),decode(m,z),m.S);this.q('.steplabel').textContent=`done · ${N} steps`}
+    putRGB(this.q('.cv-out'),decode(m,x),m.S);
+    this.q('.out-cap').innerHTML=k<N?`Decoded image after ${k} of ${N} steps: still noisy`:`Final image after ${N} denoising steps`;
+    this.markSched(k)}
+  renderText(){const m=this.m,o=this.o,ex=m.examples[o.prompt].t,el=this.q('.tokens');let html='',toks;
+    if(m.id==='ddpm'){html=`<span class="tok">class_id = ${o.prompt}</span><span class="tok sp">+ timestep t</span>`;toks=['cls'+o.prompt,'time']}
+    else if(m.id==='sd'){toks=clipTokens(ex);html=`<span class="tok sp">&lt;|startoftext|&gt;</span>`+toks.map(t=>`<span class="tok">${t}&lt;/w&gt;</span>`).join('')+`<span class="tok sp">&lt;|endoftext|&gt;</span><span class="tok sp">+ ${75-toks.length} × pad</span>`;toks=['<s>'].concat(toks)}
+    else{toks=t5Tokens(ex);html=toks.map(t=>`<span class="tok">${t.replace(/</g,'&lt;')}</span>`).join('')+`<span class="tok sp">&lt;/s&gt;</span><span class="tok sp">+ ${511-toks.length} × pad</span><span class="tok cl">CLIP-L pooled → 768-d vector</span>`}
+    el.innerHTML=html;drawEmb(this.q('.emb'),toks)}
+  renderShapes(){const m=this.m,o=this.o;let a,b;
+    if(m.id==='ddpm'){a=`class embedding: <b>1 × 512</b><br>+ sinusoidal timestep embedding<br>injected into every ResNet block`;b=`output: <b>3 × 64 × 64</b> pixels<br>(DDPM papers: 32² CIFAR-10 … 256² LSUN)`}
+    else if(m.id==='sd'){const n=clipTokens(m.examples[o.prompt].t).length+2;a=`tokenizer: CLIP BPE, <b>${n}</b> / 77 tokens<br>CLIP ViT-L/14 text encoder → <b>77 × 768</b><br>enters the U-Net via cross-attention`;b=`VAE decoder: <b>4 × 64 × 64 → 3 × 512 × 512</b><br>latents are first divided by 0.18215<br>(demo: 4 × 16 × 16 → 128 × 128)`}
+    else{const n=t5Tokens(m.examples[o.prompt].t).length+1;a=`T5-XXL encoder: <b>${n}</b> / 512 tokens → <b>512 × 4096</b><br>(linear → 3072-d text tokens)<br>CLIP-L pooled <b>768</b> → modulation vector`;b=`VAE decoder: <b>16 × 128 × 128 → 3 × 1024 × 1024</b><br>un-scale: z / 0.3611 + 0.1159<br>(demo: 16 × 16 × 16 → 128 × 128; 2×2 patches → 64 tokens)`}
+    this.q('.s-text').innerHTML=a;this.q('.s-out').innerHTML=b;
+    let f;if(m.kind==='flow'){const v=this.variant();f=`x<sub>t−Δ</sub> = x<sub>t</sub> − Δ · v̂(x<sub>t</sub>, t, text${v.mu!=null?', w':''})${v.mu!=null?`&nbsp;&nbsp;·&nbsp;&nbsp;guidance w = ${o.g} is an <i>input</i> to FLUX.1 [dev] (one forward pass); the demo emulates it as v̂ = v<sub>u</sub> + w(v<sub>c</sub> − v<sub>u</sub>)`:'&nbsp;&nbsp;·&nbsp;&nbsp;[schnell] is distilled: no guidance and no timestep shift, 1–4 steps'}`}
+    else f=`x<sub>t−1</sub> = √ᾱ<sub>t−1</sub> · x̂<sub>0</sub> + √(1 − ᾱ<sub>t−1</sub> − σ<sub>t</sub>²) · ε̂ + σ<sub>t</sub> · z&nbsp;&nbsp;·&nbsp;&nbsp;ε̂ = ε<sub>uncond</sub> + w (ε<sub>cond</sub> − ε<sub>uncond</sub>), w = ${o.g}`;
+    this.q('.formula').innerHTML=f}
+  drawSched(){const sts=this.res.sts,N=sts.length,svg=this.q('.sched');const X=i=>20+i*(370/Math.max(1,N));const Y=v=>78-v*66;
+    let p1='',p2='';for(let i=0;i<=N;i++){const s=i<N?sts[i]:{sig:1,noi:0};p1+=`${X(i)},${Y(s.sig)} `;p2+=`${X(i)},${Y(s.noi)} `}
+    svg.innerHTML=`<line x1="20" y1="78" x2="392" y2="78" stroke="#ccd"/><polyline points="${p1}" fill="none" stroke="#2a9d6f" stroke-width="2"/><polyline points="${p2}" fill="none" stroke="#9aa3b5" stroke-width="2" stroke-dasharray="4 3"/><text x="22" y="10" font-size="10" fill="#2a9d6f">signal ${this.m.kind==='flow'?'(1 − σ)':'√ᾱ'}</text><text x="120" y="10" font-size="10" fill="#7d879a">noise ${this.m.kind==='flow'?'σ':'√(1 − ᾱ)'}</text><text x="320" y="90" font-size="9" fill="#999">sampling step →</text><line class="mk" x1="0" x2="0" y1="12" y2="80" stroke="${this.m.hex}" stroke-width="2"/>`;this._X=X}
+  markSched(k){const l=this.q('.sched .mk');if(l){l.setAttribute('x1',this._X(k));l.setAttribute('x2',this._X(k))}}
+  buildGrids(){const m=this.m,o=this.o,tok=++this.gridToken;const gg=this.q('.g-guid'),gs=this.q('.g-seed');
+    const schnell=m.kind==='flow'&&this.variant().mu==null;
+    const gList=schnell?[1,2,4,8].map(s=>({steps:s,lab:`${s} step${s>1?'s':''}`,sel:s===o.steps})):m.gGrid.map(g=>({g,lab:`w = ${g}`,sel:g===o.g}));
+    this.q('.g1-title').textContent=schnell?'Compare step counts (FLUX.1 [schnell] has no guidance)':'Compare guidance scales (same prompt and seed)';
+    this.q('.g1-note').innerHTML=schnell?'Distilled models are trained to produce a sharp image in 1–4 steps; extra steps add little.':m.kind==='flow'?'w = 1 means no extra push toward the prompt. Larger w follows the prompt more strongly; too large over-saturates.':'w = 0 ignores the prompt (unconditional sample from <i>any</i> class), w = 1 is the plain conditional model, larger w follows the prompt more strongly but reduces diversity and can over-saturate.';
+    const seedList=SEEDS.slice(0,5).map(s=>({seed:s,lab:`seed ${s}`,sel:s===o.seed}));
+    const mk=(host,list)=>{host.innerHTML=list.map(it=>`<div class="fig ${it.sel?'sel':''}"><canvas class="${m.space==='pixel'?'px':''}"></canvas><div class="cap">${it.lab}</div></div>`).join('');return[...host.querySelectorAll('canvas')]};
+    const c1=mk(gg,gList),c2=mk(gs,seedList);const jobs=[];
+    const stepsCap=m.id==='ddpm'?Math.min(o.steps,50):o.steps;
+    gList.forEach((it,i)=>jobs.push([c1[i],Object.assign({},it.steps?{steps:it.steps}:{g:it.g,steps:stepsCap})]));
+    seedList.forEach((it,i)=>jobs.push([c2[i],{seed:it.seed,steps:stepsCap}]));
+    const next=()=>{if(tok!==this.gridToken||!jobs.length)return;const[cv,ov]=jobs.shift();const r=run(m,this.opts(ov));putRGB(cv,decode(m,r.xs[r.xs.length-1]),m.S);setTimeout(next,0)};setTimeout(next,30)}
+  updateFwd(){const m=this.m,o=this.o;const it=m.items[m.byPrompt[o.prompt][0]];const tv=+this.q('.f-t').value;const rng=gaussRng(o.seed+5);const eps=new Float32Array(m.D);for(let d=0;d<m.D;d++)eps[d]=rng();
+    let a,b,lab;if(m.kind==='flow'){const t=tv/1000;a=1-t;b=t;lab=`σ = t = <b>${t.toFixed(2)}</b> · signal (1 − t) = <b>${a.toFixed(3)}</b> · noise t = <b>${b.toFixed(3)}</b>`}
+    else{const ti=Math.min(T-1,tv);const ab=AB[m.sched][ti];a=Math.sqrt(ab);b=Math.sqrt(1-ab);lab=`t = <b>${ti}</b> · ᾱ<sub>t</sub> = <b>${ab.toFixed(4)}</b> · √ᾱ = <b>${a.toFixed(3)}</b> · √(1−ᾱ) = <b>${b.toFixed(3)}</b> · SNR = <b>${(ab/(1-ab)).toExponential(1)}</b>`}
+    const xt=new Float32Array(m.D);for(let d=0;d<m.D;d++)xt[d]=a*it.lat[d]+b*eps[d];
+    putRGB(this.q('.f-clean'),it.img,m.S);
+    if(m.space==='pixel'){putRGB(this.q('.f-lat'),xt,m.S);putRGB(this.q('.f-dec'),scaleShow(eps,.5),m.S)}else{putChannels(this.q('.f-lat'),xt,m.C,m.H);putRGB(this.q('.f-dec'),linDecode(m,xt,true),m.S)}
+    this.q('.readout').innerHTML=lab;
+    this.q('.f-formula').innerHTML=m.kind==='flow'?'x<sub>t</sub> = (1 − t) · x<sub>0</sub> + t · ε,&nbsp; ε ~ 𝒩(0, I)&nbsp;&nbsp;(a straight line from data to noise)':`x<sub>t</sub> = √ᾱ<sub>t</sub> · x<sub>0</sub> + √(1 − ᾱ<sub>t</sub>) · ε,&nbsp; ε ~ 𝒩(0, I)&nbsp;&nbsp;(${m.sched==='linear'?'linear β: 10⁻⁴ → 0.02':'scaled-linear β: 0.00085 → 0.012'}, T = 1000)`}
+  renderCapCard(){const m=this.m,el=this.q('.cap-card');
+    if(m.space==='pixel'){el.innerHTML=`<h3>Why pixel space is expensive</h3><p class="small" style="font-size:14px;color:var(--ink)">DDPM's U-Net processes <b>every pixel at every step</b>. A 256×256 RGB image has 196,608 values, and the original DDPM used <b>T = 1000</b> sampling steps, so one image needs 1000 full-resolution U-Net passes.</p>
+      <table class="cmp" style="font-size:13px"><tr><th>Space</th><th>Values per step</th><th>Relative</th></tr><tr><td>Pixels 512² × 3</td><td>786,432</td><td>48×</td></tr><tr><td>SD latent 64² × 4</td><td>16,384</td><td>1×</td></tr><tr><td>FLUX latent 128² × 16 (1024² image)</td><td>262,144 → 4,096 tokens</td><td>16×</td></tr></table>
+      <p class="small">Two fixes followed: <b>fewer steps</b> (DDIM, better ODE solvers, distillation) and <b>a smaller space</b> (latent diffusion). Switch to the Stable Diffusion and FLUX tabs to see both.</p>`;return}
+    const it=m.items[0],S=m.S;el.innerHTML=`<h3>What the latent keeps: 4 vs 16 channels</h3><div class="fwd-row"><div class="fig"><canvas class="k0"></canvas><div class="cap">Original</div></div><div class="fig"><canvas class="k4"></canvas><div class="cap">4-ch latent (SD / SDXL)</div><div class="sub">48× fewer values</div></div><div class="fig"><canvas class="k16"></canvas><div class="cap">16-ch latent (SD3 / FLUX)</div><div class="sub">12× fewer values</div></div></div><p class="small">Reconstructions from this page's toy linear "VAE" (no detail borrowing). A real VAE decoder is a deep network that is far better than this, but the trend holds: with 4 channels per 8×8 patch fine text and texture are hard to recover. FLUX's 16-channel autoencoder keeps much more, which helps it render small text and detail. The price is a harder generation task, which the larger transformer pays for.</p><p class="small">This demo's latent scaling: ${m.C===4?`scale = ${m.scale.toFixed(3)} (Stable Diffusion's real VAE uses 0.18215)`:`shift = ${m.shift.toFixed(3)}, scale = ${m.scale.toFixed(3)} (FLUX's real VAE uses shift 0.1159, scale 0.3611)`}: latents are normalised to unit variance before diffusion.</p>`;
+    putRGB(el.querySelector('.k0'),it.img,S);const H=S/8;putRGB(el.querySelector('.k4'),upsample(dec4lin(enc4(it.img,S),H),H,S),S);putRGB(el.querySelector('.k16'),upsample(dec16lin(enc16(it.img,S),H),2*H,S),S)}
+}
+
+/* =====================================================================
+   9. Articles
+   ===================================================================== */
+const UNET_SVG=`<svg viewBox="0 0 760 230" font-family="Inter,Segoe UI,sans-serif" font-size="11">
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#889"/></marker></defs>
+${[0,1,2,3].map(i=>`<rect x="${30+i*80}" y="${30+i*32}" width="60" height="${150-i*40}" rx="6" fill="#e3f3ee" stroke="#2a9d6f"/><text x="${60+i*80}" y="${24+i*32}" text-anchor="middle" fill="#2a6">${['64²','32²','16²','8²'][i]}</text>`).join('')}
+<rect x="350" y="140" width="60" height="40" rx="6" fill="#d5ece4" stroke="#2a9d6f"/><text x="380" y="164" text-anchor="middle">mid</text>
+${[3,2,1,0].map((i,j)=>`<rect x="${430+j*80}" y="${30+i*32}" width="60" height="${150-i*40}" rx="6" fill="#e3f3ee" stroke="#2a9d6f"/>`).join('')}
+${[0,1,2].map(i=>`<path d="M${90+i*80},${60+i*32} C ${300},${10+i*10} ${460},${10+i*10} ${670-i*80},${60+i*32}" fill="none" stroke="#b9c" stroke-dasharray="4 3" marker-end="url(#ar)"/>`).join('')}
+<text x="380" y="18" text-anchor="middle" fill="#866">skip connections</text>
+<rect x="250" y="196" width="260" height="26" rx="6" fill="#e8effc" stroke="#3d7be0"/><text x="380" y="213" text-anchor="middle" fill="#2b4f99">text embedding → cross-attention (K, V) in each block</text>
+<text x="20" y="215" fill="#555">x_t, t →</text><text x="700" y="215" fill="#555">→ ε̂</text>
+<text x="60" y="200" text-anchor="middle" fill="#555" font-size="10">ResNet + Attn</text></svg>`;
+const FLUX_SVG=`<svg viewBox="0 0 760 250" font-family="Inter,Segoe UI,sans-serif" font-size="11">
+<defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#889"/></marker></defs>
+<rect x="10" y="40" width="120" height="40" rx="7" fill="#e8effc" stroke="#3d7be0"/><text x="70" y="58" text-anchor="middle">T5-XXL tokens</text><text x="70" y="72" text-anchor="middle" fill="#557">≤512 × 4096 → 3072</text>
+<rect x="10" y="130" width="120" height="40" rx="7" fill="#fbe9de" stroke="#e0662b"/><text x="70" y="148" text-anchor="middle">noisy latent tokens</text><text x="70" y="162" text-anchor="middle" fill="#755">2×2 patches, 64 → 3072</text>
+<rect x="10" y="200" width="120" height="40" rx="7" fill="#f2f2f2" stroke="#999"/><text x="70" y="218" text-anchor="middle">t, guidance, CLIP pooled</text><text x="70" y="232" text-anchor="middle" fill="#777">→ modulation vector</text>
+<rect x="170" y="30" width="200" height="150" rx="10" fill="#fff4ec" stroke="#e0662b"/><text x="270" y="50" text-anchor="middle" font-weight="700">19 × double-stream block</text>
+<rect x="185" y="62" width="80" height="34" rx="5" fill="#e8effc"/><text x="225" y="83" text-anchor="middle">text weights</text>
+<rect x="275" y="62" width="80" height="34" rx="5" fill="#fbe9de"/><text x="315" y="83" text-anchor="middle">image weights</text>
+<rect x="185" y="108" width="170" height="30" rx="5" fill="#fde0cc"/><text x="270" y="127" text-anchor="middle">joint attention over [text ; image]</text>
+<text x="270" y="160" text-anchor="middle" fill="#777">separate MLPs + AdaLN per stream</text>
+<rect x="410" y="30" width="200" height="150" rx="10" fill="#fff4ec" stroke="#e0662b"/><text x="510" y="50" text-anchor="middle" font-weight="700">38 × single-stream block</text>
+<rect x="425" y="70" width="170" height="30" rx="5" fill="#fde0cc"/><text x="510" y="89" text-anchor="middle">concat sequence, shared weights</text>
+<rect x="425" y="110" width="80" height="30" rx="5" fill="#fff"/><text x="465" y="129" text-anchor="middle">attention</text><rect x="515" y="110" width="80" height="30" rx="5" fill="#fff"/><text x="555" y="129" text-anchor="middle">MLP (parallel)</text>
+<rect x="650" y="85" width="100" height="40" rx="7" fill="#fbe9de" stroke="#e0662b"/><text x="700" y="103" text-anchor="middle">drop text tokens</text><text x="700" y="117" text-anchor="middle" fill="#755">→ velocity v̂</text>
+<path d="M130,60 H170" stroke="#889" marker-end="url(#ar2)"/><path d="M130,150 H170" stroke="#889" marker-end="url(#ar2)"/><path d="M370,105 H410" stroke="#889" marker-end="url(#ar2)"/><path d="M610,105 H650" stroke="#889" marker-end="url(#ar2)"/>
+<path d="M130,220 H390 V180" stroke="#aaa" stroke-dasharray="4 3" fill="none"/><path d="M390,220 H510 V180" stroke="#aaa" stroke-dasharray="4 3" fill="none"/>
+<text x="400" y="242" fill="#777">modulates every block (scale/shift/gate)</text><text x="270" y="198" text-anchor="middle" fill="#777">3D RoPE positions</text></svg>`;
+
+const ARTICLES={
+ddpm:`
+<h2>What is a diffusion model?</h2>
+<p>A diffusion model is a generative model that learns to <b>undo noise</b>. Training starts from a fixed <i>forward process</i>: take a real image x<sub>0</sub> and, over T = 1000 small steps, mix in Gaussian noise until nothing of the image remains. The network is then trained on the <i>reverse</i> task. Given a noisy image and how noisy it is, predict what to remove. At generation time we start from pure noise and run the learned reverse process step by step. Use the timeline above to scrub through it.</p>
+<h3>The forward process has a closed form</h3>
+<p>Each forward step multiplies the image by √(1 − β<sub>t</sub>) and adds noise of variance β<sub>t</sub>. Composing the steps gives a convenient shortcut that jumps straight to any noise level t. Try it in the forward process explorer:</p>
+<div class="eq">q(x<sub>t</sub> | x<sub>0</sub>) = 𝒩( √ᾱ<sub>t</sub> · x<sub>0</sub>, (1 − ᾱ<sub>t</sub>) · I ),&nbsp;&nbsp; ᾱ<sub>t</sub> = ∏<sub>s≤t</sub> (1 − β<sub>s</sub>)</div>
+<p>DDPM uses a <b>linear schedule</b> with β rising from 10⁻⁴ to 0.02. By t = 1000, ᾱ<sub>t</sub> ≈ 4·10⁻⁵, so x<sub>T</sub> is effectively pure noise. Later work (Improved DDPM) proposed a <b>cosine schedule</b> that destroys information more evenly, because the linear one wastes many steps at near-pure noise.</p>
+<h3>Training: predict the noise</h3>
+<p>Sample an image, a random timestep t and a noise vector ε. Build x<sub>t</sub> with the formula above and ask a U-Net ε<sub>θ</sub>(x<sub>t</sub>, t) to recover ε. The loss is a plain mean-squared error:</p>
+<div class="eq">ℒ = 𝔼<sub>x₀, t, ε</sub> ‖ ε − ε<sub>θ</sub>( √ᾱ<sub>t</sub> x<sub>0</sub> + √(1 − ᾱ<sub>t</sub>) ε, t ) ‖²</div>
+<p>Predicting ε is equivalent to predicting the clean image, since x̂<sub>0</sub> = (x<sub>t</sub> − √(1−ᾱ<sub>t</sub>) ε̂) / √ᾱ<sub>t</sub>. The right-hand panel of the refiner shows this x̂<sub>0</sub>. Early on it is a blurry average of everything plausible; it sharpens as the noise falls. Up to a scale factor, ε<sub>θ</sub> is also an estimate of the <i>score</i> ∇ log p(x<sub>t</sub>), which links DDPM to score-based models and stochastic differential equations (Song et al., 2021).</p>
+<div class="diagram">${UNET_SVG}</div>
+<p>The denoiser is a <b>U-Net</b>: an encoder that halves resolution several times, a decoder that restores it, and skip connections between matching resolutions. It uses ResNet blocks with self-attention at low resolution. The timestep enters every block through a sinusoidal embedding. In class-conditional models, a learned class embedding is added to it. That class embedding is the "condition" stage in the demo.</p>
+<h3>Sampling: ancestral (DDPM) vs deterministic (DDIM)</h3>
+<p>DDPM samples by drawing x<sub>t−1</sub> from a Gaussian whose mean uses ε̂ and adding fresh noise at every step. <b>DDIM</b> (Song, Meng, Ermon, 2021) showed that the same trained network admits a deterministic sampler (η = 0) that can skip timesteps. 50 steps then give results close to 1000-step DDPM. Switch the sampler in the demo: DDIM's trajectory is smooth, while DDPM injects new noise each step, so the same seed can end somewhere else.</p>
+<div class="eq">x<sub>t−1</sub> = √ᾱ<sub>t−1</sub> · x̂<sub>0</sub> + √(1 − ᾱ<sub>t−1</sub> − σ<sub>t</sub>²) · ε̂ + σ<sub>t</sub> z,&nbsp;&nbsp; σ<sub>t</sub> = η · √((1−ᾱ<sub>t−1</sub>)/(1−ᾱ<sub>t</sub>)) · √(1 − ᾱ<sub>t</sub>/ᾱ<sub>t−1</sub>)</div>
+<h3>Conditioning and classifier-free guidance</h3>
+<p>The original DDPM was unconditional: it simply generated "a CIFAR-10 image". To control <i>what</i> is generated, the network is given a condition c, such as a class label here or a text prompt in Stable Diffusion. <b>Classifier-free guidance</b> (Ho and Salimans, 2022) trains one network both with and without the condition by randomly dropping c. At sampling time it extrapolates away from the unconditional prediction:</p>
+<div class="eq">ε̂ = ε<sub>θ</sub>(x<sub>t</sub>, ∅) + w · ( ε<sub>θ</sub>(x<sub>t</sub>, c) − ε<sub>θ</sub>(x<sub>t</sub>, ∅) )</div>
+<p>In the demo, w = 0 produces samples from <i>any</i> class, w = 1 is the plain conditional model, and larger w commits to the class earlier and more strongly. Guidance trades diversity for fidelity. Every guided step needs two network evaluations, a cost that FLUX later removes.</p>
+<div class="callout"><b>Takeaway.</b> A diffusion model is a denoiser applied repeatedly with a schedule. Everything in Stable Diffusion and FLUX keeps this idea and changes <i>where</i> the denoising happens (latent space), <i>what</i> network does it (U-Net → transformer), and <i>which path</i> from noise to data is learned (diffusion → rectified flow).</div>`,
+sd:`
+<h2>Stable Diffusion: diffusion in a learned latent space</h2>
+<p>Stable Diffusion is the open-weights release of <b>Latent Diffusion Models</b> (Rombach et al., CVPR 2022), trained with Stability AI and Runway. Its key observation is that most pixel-level detail is perceptually redundant. A separate autoencoder can compress an image 8× per side, and the expensive diffusion model only has to model the compressed code. The pipeline has three parts, matching the three stages of the demo.</p>
+<h3>1 · Text Representation Generator (CLIP text encoder)</h3>
+<p>The prompt is split by CLIP's byte-pair-encoding tokenizer into at most <b>77 tokens</b>, including start and end tokens and padding. SD 1.x uses the frozen text tower of OpenAI's <b>CLIP ViT-L/14</b>, which outputs one <b>768-dimensional</b> vector per token. CLIP was trained to align images and captions, so its embeddings already "know" what visual concepts words refer to. SD 2.x switched to OpenCLIP ViT-H (1024-d), and SDXL concatenates two encoders (CLIP ViT-L and OpenCLIP ViT-bigG) into 2048-d token features.</p>
+<h3>2 · Image Representation Refiner (U-Net in latent space)</h3>
+<p>Generation starts from random Gaussian noise of shape <b>4 × 64 × 64</b> for a 512 × 512 image. A ~860M-parameter U-Net predicts the noise at each step, exactly as in DDPM. The text enters through <b>cross-attention</b> in the U-Net's transformer blocks: queries come from image features, keys and values from the 77 token embeddings. Each spatial location can therefore "look up" the words relevant to it.</p>
+<div class="diagram">${UNET_SVG}</div>
+<div class="eq">Attention(Q, K, V) = softmax(Q Kᵀ / √d) · V,&nbsp;&nbsp; Q = W<sub>q</sub> · φ(z<sub>t</sub>),&nbsp; K = W<sub>k</sub> · τ(prompt),&nbsp; V = W<sub>v</sub> · τ(prompt)</div>
+<p>SD uses a <b>scaled-linear</b> noise schedule (√β from √0.00085 to √0.012, T = 1000). Sampling typically uses 20–50 steps with a fast solver: PNDM was the original default; DDIM, Euler and DPM-Solver++ are common. The demo uses DDIM with "leading" timestep spacing, so a 50-step run visits t = 981, 961, …, 1, as the Diffusion Explainer timeline does.</p>
+<h3>Classifier-free guidance and negative prompts</h3>
+<p>At every step the U-Net runs twice: once with the prompt and once with an empty prompt. The two noise predictions are combined with guidance scale w, default <b>7.5</b>. Larger w makes the image follow the prompt more closely but less varied and, past ~15, often over-saturated. Compare the guidance row above. A <b>negative prompt</b> simply replaces the empty prompt in the unconditional branch, so guidance pushes <i>away</i> from it.</p>
+<h3>3 · Image Decoder (VAE)</h3>
+<p>The final latent is divided by the scaling factor <b>0.18215</b>, which normalised the latents to unit variance during training. The VAE decoder then upsamples it 8× to a 512 × 512 RGB image. The VAE was trained once, separately, with reconstruction, perceptual and adversarial losses, and it stays frozen while the diffusion U-Net trains. This makes each U-Net pass about <b>48× cheaper</b> than in pixel space (16,384 vs 786,432 values).</p>
+<h3>How the family evolved</h3>
+<ul>
+<li><b>SD 1.4 / 1.5</b> (2022): 512², CLIP ViT-L/14, ε-prediction, trained on LAION subsets.</li>
+<li><b>SD 2.0 / 2.1</b> (late 2022): OpenCLIP ViT-H text encoder, 768² model with <i>v-prediction</i>.</li>
+<li><b>SDXL</b> (2023): ~2.6B-parameter U-Net, two text encoders, native 1024², size and crop conditioning, and an optional refiner model.</li>
+<li><b>SD 3 / 3.5</b> (2024): drops the U-Net for an <b>MMDiT</b> transformer, trains with <b>rectified flow</b>, uses three text encoders (CLIP-L, CLIP-G, T5-XXL) and a <b>16-channel VAE</b>. This is the design FLUX builds on; see the FLUX tab.</li>
+</ul>
+<div class="callout"><b>Takeaway.</b> Stable Diffusion = <i>VAE</i> (where to denoise) + <i>CLIP text encoder</i> (what to draw) + <i>U-Net with cross-attention</i> (how to denoise) + <i>classifier-free guidance</i> (how strongly to follow the text).</div>`,
+flux:`
+<h2>FLUX: rectified-flow transformers</h2>
+<p><b>FLUX.1</b> was released in August 2024 by Black Forest Labs, founded by several of the researchers behind Latent Diffusion and Stable Diffusion. It came in three variants: [pro] (API only), [dev] (open weights, non-commercial licence) and [schnell] (Apache-2.0). All share a ~<b>12-billion-parameter</b> rectified-flow transformer that works in the latent space of a new 16-channel autoencoder. In the BFL team's own words, FLUX.1 is "a rectified flow transformer trained in the latent space of an image autoencoder" (FLUX.1 Kontext paper, 2025).</p>
+<h3>Rectified flow: learn a straight path from noise to data</h3>
+<p>Diffusion models follow a curved path from noise to data, set by the noise schedule. <b>Rectified flow</b> (Liu et al., 2023), a special case of <b>flow matching</b> (Lipman et al., 2023), instead connects each data point x<sub>0</sub> and noise sample ε with a <i>straight line</i>:</p>
+<div class="eq">x<sub>t</sub> = (1 − t) · x<sub>0</sub> + t · ε,&nbsp;&nbsp; t ∈ [0, 1]&nbsp;&nbsp;&nbsp;⟹&nbsp;&nbsp;&nbsp; dx<sub>t</sub>/dt = ε − x<sub>0</sub> =: v</div>
+<p>The transformer v<sub>θ</sub>(x<sub>t</sub>, t, text) is trained to predict this <b>velocity</b> with a simple regression loss ‖v<sub>θ</sub> − (ε − x<sub>0</sub>)‖². Generation solves the ODE dx/dt = v<sub>θ</sub> backwards from t = 1 (noise) to t = 0 (image), usually with plain <b>Euler steps</b>: x<sub>t−Δ</sub> = x<sub>t</sub> − Δ · v̂. Straighter paths mean less discretisation error per step, so fewer steps are needed. Compare the forward explorer here, a linear mix, with the DDPM tab's √ᾱ curve.</p>
+<p>Two practical refinements come from the SD3 paper (Esser et al., 2024). During training, t is sampled from a <b>logit-normal</b> distribution that emphasises the hard middle noise levels. At inference, the schedule is <b>shifted</b> toward high noise for large images, because more pixels carry more redundant signal. FLUX.1 [dev] uses a resolution-dependent shift: σ' = e<sup>μ</sup> / (e<sup>μ</sup> + 1/σ − 1), with μ growing from 0.5 at 256 tokens to 1.15 at 4096 tokens. The demo uses μ = 1.15, the value for a 1024² image; watch how the σ curve above front-loads the high-noise steps.</p>
+<h3>Architecture: a hybrid multimodal diffusion transformer</h3>
+<div class="diagram">${FLUX_SVG}</div>
+<ul>
+<li><b>Autoencoder.</b> 8× downsampling to a <b>16-channel</b> latent (1024² → 16 × 128 × 128). Pairs of 2×2 latent pixels are packed into one 64-d token, so a 1024² image becomes 4096 image tokens.</li>
+<li><b>Text.</b> <b>T5-XXL</b> provides per-token embeddings (up to 512 tokens for [dev]), which join the image tokens in the transformer's sequence. <b>CLIP ViT-L</b> contributes only its pooled 768-d vector, added to the timestep and guidance embeddings to form a global <i>modulation</i> vector (AdaLN scale, shift and gate in every block). T5's language understanding is a major reason FLUX follows long prompts and renders text far better than CLIP-only models.</li>
+<li><b>19 double-stream blocks</b> (MMDiT). Text and image tokens keep separate weights and MLPs, but attention is computed jointly over their concatenation, so information flows both ways. No cross-attention is needed.</li>
+<li><b>38 single-stream blocks.</b> The two sequences are merged and processed with shared weights. Attention and MLP run <i>in parallel</i> from the same input, a fused design that uses the GPU better. Finally the text tokens are dropped and the image tokens are decoded to the velocity.</li>
+<li><b>3D rotary position embeddings</b> (RoPE) encode each token's position, which lets the model work at many aspect ratios and resolutions.</li>
+</ul>
+<h3>Distillation: why [dev] and [schnell] differ</h3>
+<p><b>FLUX.1 [dev] is guidance-distilled.</b> Instead of running the transformer twice per step (conditional + unconditional) as classifier-free guidance requires, the guidance scale w is fed to the model as an extra input embedding. The model was trained to reproduce the guided output in a <b>single forward pass</b>, halving the cost. The usual value is about 3.5, with ~28–50 Euler steps. The demo emulates this by computing the guided velocity directly.</p>
+<p><b>FLUX.1 [schnell] is timestep-distilled</b> with latent adversarial diffusion distillation (LADD). It produces a sharp image in <b>1–4 steps</b>, with no guidance input and no schedule shift. Switch the model selector to see that the step comparison barely changes after 4 steps.</p>
+<h3>Beyond FLUX.1</h3>
+<ul>
+<li><b>FLUX.1 Tools and Kontext</b> (2024–2025): inpainting, depth and edge control, and <i>in-context</i> image editing. Kontext appends the tokens of a reference image to the sequence, so the same transformer can edit while keeping characters consistent.</li>
+<li><b>FLUX.2</b> (November 2025): a new architecture trained from scratch. The open [dev] checkpoint has a <b>32B</b> transformer with <b>8 double-stream and 48 single-stream blocks</b> and replaces T5 + CLIP with a single <b>Mistral Small 3.1</b> vision-language model (24B) as text encoder. It has a new, openly licensed VAE, supports up to <b>10 reference images</b>, and outputs up to 4 MP.</li>
+<li><b>FLUX.2 [klein]</b> (January 2026): compact 4B and 9B distilled models paired with Qwen3 text embedders, generating in ~4 steps at interactive, sub-second speeds.</li>
+</ul>
+<div class="callout"><b>Takeaway.</b> FLUX keeps the latent-diffusion recipe (VAE + text encoders + iterative denoiser) and modernises every piece. It uses straight rectified-flow paths instead of noise-prediction diffusion, one joint-attention transformer instead of a U-Net with cross-attention, T5 instead of only CLIP, a richer 16-channel latent, and distillation that removes the second guidance pass or nearly all of the steps.</div>`
+};
+
+/* =====================================================================
+   10. Boot
+   ===================================================================== */
+const panes={};const host=document.getElementById('panes'),arts=document.getElementById('articles');
+Object.values(METHODS).forEach(m=>{const p=new Pane(m);p.mount(host);panes[m.id]=p;arts.insertAdjacentHTML('beforeend',`<article class="explain pane" id="art-${m.id}">${ARTICLES[m.id]}</article>`)});
+function activate(id){document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.m===id));Object.keys(panes).forEach(k=>{panes[k].el.classList.toggle('on',k===id);document.getElementById('art-'+k).classList.toggle('on',k===id);if(k!==id)panes[k].stop()});document.documentElement.style.setProperty('--accent',METHODS[id].hex);panes[id].ensure();try{history.replaceState(null,'','#'+id)}catch(e){}}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.m)));
+activate((location.hash||'').slice(1) in METHODS?(location.hash.slice(1)):'ddpm');
+</script>
+</body>
+</html>
