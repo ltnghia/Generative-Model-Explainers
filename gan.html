@@ -186,6 +186,10 @@ footer ol{padding-left:20px;columns:2;column-gap:36px}
 footer li{margin-bottom:4px;break-inside:avoid}
 </style>
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="katex/katex.min.css">
+<script defer src="katex/katex.min.js"></script>
+<script defer src="katex/auto-render.min.js"></script>
+<script defer src="math.js"></script>
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -271,48 +275,50 @@ footer li{margin-bottom:4px;break-inside:avoid}
 
   <article class="explain">
     <h3>What is a GAN?</h3>
-    <p>A Generative Adversarial Network (Goodfellow et al., 2014) learns to create new data by setting two neural networks against each other. The <b style="color:var(--gen)">generator G</b> takes a vector of random numbers <span class="mono">z</span> and turns it into a sample, such as a point, an image or a sound. The <b style="color:var(--dis)">discriminator D</b> looks at a sample and outputs the probability that it came from the real training data rather than from G.</p>
-    <p>The original paper describes the pair as a team of counterfeiters and the police. The counterfeiters (G) try to print money that passes inspection; the police (D) try to catch fakes. Each side improves because the other one does. Training ends, in theory, when the fakes are so good that the police can only guess.</p>
+    <p class="tldr"><b>Two networks play one game.</b> The <b style="color:var(--gen)">generator</b> \(G\) turns noise \(z\) into a sample; the <b style="color:var(--dis)">discriminator</b> \(D\) outputs the probability that a sample is real. Each improves because the other does (Goodfellow et al., 2014).</p>
 
-    <h4>The minimax objective</h4>
-    <p>Both networks optimise one value function. D tries to make it large; G tries to make it small:</p>
-    <div class="eq">min<sub>G</sub> max<sub>D</sub> V(D,G) = 𝔼<sub>x~p<sub>data</sub></sub>[log D(x)] + 𝔼<sub>z~p<sub>z</sub></sub>[log(1 − D(G(z)))]</div>
-    <p>For a fixed generator, the best possible discriminator is <span class="mono">D*(x) = p<sub>data</sub>(x) / (p<sub>data</sub>(x) + p<sub>g</sub>(x))</span>. Plugging it back in shows that G is then minimising the Jensen–Shannon divergence between the real distribution and its own. The global optimum is reached when <span class="mono">p<sub>g</sub> = p<sub>data</sub></span>, where D outputs ½ for every input. The dashed lines in the training-curve chart mark the loss values at that point.</p>
-    <p>In practice G is trained with the <i>non-saturating</i> loss <span class="mono">−log D(G(z))</span> instead of <span class="mono">log(1 − D(G(z)))</span>. Early in training D rejects fakes easily, and the original term then gives almost no gradient; the non-saturating version gives strong gradients exactly when G is doing badly. This page uses it.</p>
+    <div class="keq"><div class="keq-h"><span class="k">Objective</span>Minimax value function</div>
+      \[\min_G\max_D\;V(D,G)=\mathbb{E}_{x\sim p_{\text{data}}}\big[\log D(x)\big]+\mathbb{E}_{z\sim p_z}\big[\log\big(1-D(G(z))\big)\big]\]
+      <p class="keq-n">\(D\) pushes \(V\) up (real → 1, fake → 0); \(G\) pushes it down.</p></div>
+
+    <div class="keq"><div class="keq-h"><span class="k">Optimum</span>Best discriminator for a fixed G</div>
+      \[D^*(x)=\frac{p_{\text{data}}(x)}{p_{\text{data}}(x)+p_g(x)}\]
+      <p class="keq-n">With \(D^*\), \(G\) minimises the Jensen–Shannon divergence. At \(p_g=p_{\text{data}}\), \(D^*=\tfrac12\) everywhere: the dashed lines in the loss chart.</p></div>
+
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>What this page trains</div>
+      \[\mathcal{L}_D=-\big[\log D(x)+\log\big(1-D(G(z))\big)\big]\qquad\mathcal{L}_G=-\log D(G(z))\]
+      <p class="keq-n">Non-saturating \(\mathcal{L}_G\): it gives strong gradients exactly when \(G\) is losing, unlike \(\log(1-D(G(z)))\).</p></div>
 
     <h4>One training iteration</h4>
-    <ol>
-      <li>Sample a batch of real points and a batch of noise vectors; run the noise through G to get fakes.</li>
-      <li><b>Update D</b> (repeated k times): raise D(x) on real points and lower D(G(z)) on fakes, using binary cross-entropy.</li>
-      <li><b>Update G</b>: back-propagate <span class="mono">−log D(G(z))</span> through the frozen discriminator into G's weights, so the fakes move toward regions D thinks are real.</li>
-    </ol>
-    <p>Here both networks are small multilayer perceptrons trained with Adam (β<sub>1</sub> = 0.5) on batches of 96 points. Real image GANs follow the same loop with convolutional networks and millions of parameters.</p>
-
-    <h4>How to read the visualization</h4>
-    <ul>
-      <li><b>Discriminator map.</b> The background colour is D's output at every location: teal where D believes points are real, amber where it believes they are fake. A well-trained D draws teal over the data and amber over places G has wrongly put its points.</li>
-      <li><b>Generator gradients.</b> Each violet line shows the direction in which G's loss pushes that fake point. The arrows point uphill on the discriminator map, toward the teal regions.</li>
-      <li><b>Noise-to-data mapping.</b> G is a function from the noise plane to the data plane. Turning this on draws a regular grid in z-space after it has been warped by G, which shows how G folds and stretches the noise to cover the data.</li>
-      <li><b>Prediction box.</b> The average D(x) on real data and D(G(z)) on fakes. Both drift toward 0.5 as G improves.</li>
+    <ul class="pts">
+      <li><b>D step</b> (×k): one real batch and one fake batch, minimise \(\mathcal{L}_D\).</li>
+      <li><b>G step</b>: backpropagate \(\mathcal{L}_G\) through the frozen \(D\) into \(G\).</li>
+      <li>Here: small MLPs, Adam with \(\beta_1=0.5\), batches of 96 points.</li>
     </ul>
 
-    <h4>Why GANs are hard to train</h4>
-    <ul>
-      <li><b>Mode collapse.</b> G may find a few outputs that fool D and produce only those, ignoring the rest of the data. Try the <i>Ring of 8 Gaussians</i> or <i>5×5 grid</i> examples and watch whether every mode gets covered.</li>
-      <li><b>Oscillation.</b> The two players chase each other instead of settling. You can see the fakes swing from mode to mode while the losses wobble.</li>
-      <li><b>Vanishing gradients.</b> If D becomes too confident, G receives little useful signal. Raise <i>D steps per G step</i> to see a stronger discriminator, or raise the learning rate to see instability.</li>
+    <h4>Reading the plot</h4>
+    <ul class="pts">
+      <li><b>Background</b> = \(D(x)\): teal where D says real, amber where it says fake.</li>
+      <li><b>Violet lines</b> = the push \(-\nabla_x\mathcal{L}_G\) on each fake point, uphill toward teal.</li>
+      <li><b>Warped grid</b> = how \(G\) folds the noise plane onto the data.</li>
     </ul>
-    <p>Many later methods target these problems, including the Wasserstein GAN loss (Arjovsky et al., 2017), gradient penalties, spectral normalization (Miyato et al., 2018) and careful architectures such as DCGAN (Radford et al., 2015) and StyleGAN (Karras et al., 2019).</p>
+
+    <h4>Why training is hard</h4>
+    <div class="cards3">
+      <div><b>Mode collapse</b>G covers only some modes. Try <i>Ring of 8</i> or <i>5×5 grid</i>.</div>
+      <div><b>Oscillation</b>The players chase each other; fakes swing between modes.</div>
+      <div><b>Vanishing gradients</b>A too-confident D gives G no signal. Raise <i>D steps</i>.</div>
+    </div>
+    <p>Common fixes: WGAN loss, gradient penalty, spectral normalization, DCGAN and StyleGAN architectures.</p>
 
     <h4>From points to pictures</h4>
     <ul class="timeline">
-      <li><b>2014</b>GAN: fully connected networks generating MNIST digits and small faces.</li>
-      <li><b>2015</b>DCGAN: convolutional generator and discriminator; stable training on 64×64 images.</li>
-      <li><b>2017</b>WGAN, Progressive GAN: more stable losses and progressive growth to 1024×1024.</li>
-      <li><b>2019</b>StyleGAN: style-based generator with controllable, smooth latent space.</li>
-      <li><b>2021→</b>Diffusion models overtake GANs on most image benchmarks, but GANs remain the fastest single-pass generators and are still used for super-resolution, distillation and real-time synthesis.</li>
+      <li><b>2014</b>GAN: MLPs on MNIST and small faces.</li>
+      <li><b>2015</b>DCGAN: convolutional G and D, stable at 64×64.</li>
+      <li><b>2017</b>WGAN, Progressive GAN: stabler losses, growth to 1024×1024.</li>
+      <li><b>2019</b>StyleGAN: style-based generator, smooth latent space.</li>
+      <li><b>2021→</b>Diffusion leads on quality; GANs remain the fastest one-pass generators.</li>
     </ul>
-    <p>The two tabs above show what happens when we give the generator extra information: an input image (Pix2Pix) or a sentence (text-to-image GANs).</p>
   </article>
 </div></section>
 <!-- ===================== PIX2PIX VIEW ===================== -->
@@ -377,40 +383,42 @@ footer li{margin-bottom:4px;break-inside:avoid}
 
   <article class="explain">
     <h3>From GAN to conditional GAN</h3>
-    <p>A plain GAN generates samples from noise alone, so you cannot choose what it makes. A <b>conditional GAN</b> (Mirza &amp; Osindero, 2014) gives both networks an extra input <span class="mono">c</span>, such as a class label. G learns <span class="mono">G(z, c)</span>, and D judges whether a sample is real <i>and</i> matches <span class="mono">c</span>.</p>
-    <p><b>Pix2Pix</b> (Isola, Zhu, Zhou &amp; Efros, CVPR 2017) makes the condition a whole image. Given a training set of aligned pairs (x, y), for example a label map and the photo it was drawn from, it learns to map any new x to a plausible y. The same code, without task-specific changes, handles labels→photo, edges→photo, map↔aerial, day→night, colorization and more. The authors framed this as "image-to-image translation", by analogy with translating sentences between languages.</p>
+    <p class="tldr"><b>Pix2Pix</b> (Isola et al., CVPR 2017) is a conditional GAN whose condition is a whole image: from aligned pairs \((x,y)\) it learns \(x\to y\). The same recipe handles labels→photo, edges→photo, map↔aerial, day→night and colorization.</p>
 
-    <h4>The objective: why L1 + cGAN</h4>
-    <div class="eq">L<sub>cGAN</sub>(G,D) = 𝔼<sub>x,y</sub>[log D(x,y)] + 𝔼<sub>x,z</sub>[log(1 − D(x, G(x,z)))]</div>
-    <div class="eq">L<sub>L1</sub>(G) = 𝔼<sub>x,y,z</sub>[ ‖y − G(x,z)‖<sub>1</sub> ] &nbsp;&nbsp;&nbsp; G* = arg min<sub>G</sub> max<sub>D</sub> L<sub>cGAN</sub>(G,D) + λ·L<sub>L1</sub>(G), &nbsp;λ = 100</div>
-    <ul>
-      <li><b>L1 alone</b> gets the overall layout and colours right but is blurry. When several outputs are plausible (a car could be red or blue), the per-pixel loss is minimised by averaging them, which gives a grey, smeared result.</li>
-      <li><b>cGAN alone</b> produces sharp, realistic textures, because blur is easy for D to spot, but it can drift away from the input and add artifacts.</li>
-      <li><b>Both together</b>: L1 anchors low frequencies (what goes where), the adversarial term supplies high-frequency realism. Use the three buttons under the triptych to compare.</li>
-    </ul>
-    <p>The paper measured this on Cityscapes labels→photo by running a pretrained segmentation network (FCN) on the generated photos. More accurate segmentation means the photos contain more recognisable objects:</p>
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>Conditional adversarial loss</div>
+      \[\mathcal{L}_{cGAN}(G,D)=\mathbb{E}_{x,y}\big[\log D(x,y)\big]+\mathbb{E}_{x,z}\big[\log\big(1-D(x,G(x,z))\big)\big]\]
+      <p class="keq-n">D sees the input too: \((x,y)\) is a real pair, \((x,G(x))\) a fake pair.</p></div>
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>L1 reconstruction</div>
+      \[\mathcal{L}_{L1}(G)=\mathbb{E}_{x,y,z}\big[\lVert y-G(x,z)\rVert_1\big]\]</div>
+    <div class="keq"><div class="keq-h"><span class="k">Objective</span>Full objective</div>
+      \[G^*=\arg\min_G\max_D\;\mathcal{L}_{cGAN}(G,D)+\lambda\,\mathcal{L}_{L1}(G),\qquad\lambda=100\]
+      <p class="keq-n">L1 fixes the low frequencies (what goes where); the adversarial term adds sharp, realistic texture.</p></div>
+
+    <div class="cards3">
+      <div><b>L1 only</b>Right layout, but blurry: averaging plausible answers.</div>
+      <div><b>cGAN only</b>Sharp, but drifts from the input and adds artifacts.</div>
+      <div><b>L1 + cGAN</b>Both. Compare with the buttons under the triptych.</div>
+    </div>
+    <p>Cityscapes labels→photo, scored by a pretrained FCN on the generated photos:</p>
     <table><thead><tr><th>Loss</th><th>Per-pixel acc.</th><th>Per-class acc.</th><th>Class IoU</th></tr></thead>
-      <tbody><tr><td>L1</td><td>0.42</td><td>0.15</td><td>0.11</td></tr><tr><td>cGAN</td><td>0.57</td><td>0.22</td><td>0.16</td></tr><tr><td>L1 + cGAN</td><td>0.66</td><td>0.23</td><td>0.17</td></tr><tr><td>Ground-truth photos</td><td>0.80</td><td>0.26</td><td>0.21</td></tr></tbody></table>
+      <tbody><tr><td>L1</td><td>0.42</td><td>0.15</td><td>0.11</td></tr><tr><td>cGAN</td><td>0.57</td><td>0.22</td><td>0.16</td></tr><tr><td><b>L1 + cGAN</b></td><td><b>0.66</b></td><td><b>0.23</b></td><td><b>0.17</b></td></tr><tr><td>Ground-truth photos</td><td>0.80</td><td>0.26</td><td>0.21</td></tr></tbody></table>
 
-    <h4>Generator: U-Net with skip connections</h4>
-    <p>The generator is an encoder-decoder. The encoder halves the resolution at each of eight layers (C64-C128-C256-C512-C512-C512-C512-C512, where Ck is a 4×4 convolution with k filters, BatchNorm and LeakyReLU) down to a 1×1 bottleneck; the decoder mirrors it back to 256×256. In many translation tasks input and output share low-level structure, for example edges sit in the same place. <b>Skip connections</b> copy each encoder layer's features directly to the matching decoder layer so this information does not have to squeeze through the bottleneck. Switch the generator to <i>Encoder-decoder</i> to see the typical effect of removing them: blurrier output and shapes that no longer line up with the input.</p>
-    <p>Pix2Pix has no explicit noise vector. The authors found that the generator learned to ignore a Gaussian z, so they inject randomness through dropout, applied at both training and test time. The outputs are therefore only slightly stochastic.</p>
-
-    <h4>Discriminator: PatchGAN</h4>
-    <p>Because L1 already handles the low frequencies, D only needs to judge local structure. The <b>PatchGAN</b> discriminator is a small fully convolutional network whose every output unit sees a 70×70 patch of the (input, output) pair. For a 256×256 image it produces a 30×30 grid of real/fake scores, which are averaged into the loss. This treats the image as a Markov random field: pixels farther apart than a patch are assumed independent. The result acts like a learned texture or style loss, has fewer parameters than a full-image discriminator, and runs on images of any size. Tick <i>PatchGAN overlay</i> to see per-patch judgements (shown on an 8×8 grid here for readability): teal patches pass as real, amber patches are caught.</p>
-
-    <h4>Training recipe</h4>
-    <p>G and D are updated alternately with Adam (learning rate 0.0002, β<sub>1</sub> = 0.5). D's loss is halved to slow it down relative to G. Instead of minimising log(1 − D(x, G(x))), G maximises log D(x, G(x)), the same non-saturating trick as in the GAN tab. Batch sizes are small (often 1), and small datasets such as CMP Facades (400 training pairs) train in about 200 epochs. Drag the <i>Epoch</i> slider or press <i>Train</i> to watch an illustrative run go from noise to blurry layout to sharp detail.</p>
+    <h4>Architecture</h4>
+    <ul class="pts">
+      <li><b>Generator: U-Net.</b> Eight 4×4 stride-2 convs (C64–C128–C256–C512×5) down to 1×1, mirrored decoder, <b>skip connections</b> between mirror layers so edges survive. No \(z\): dropout is the only randomness.</li>
+      <li><b>Discriminator: PatchGAN.</b> Each output sees a 70×70 patch; a 256² image gives a 30×30 grid of real/fake scores, averaged. A learned texture loss that works at any size.</li>
+      <li><b>Training:</b> Adam, lr \(2\times10^{-4}\), \(\beta_1=0.5\); D loss halved; non-saturating G loss; batch size often 1; ~200 epochs on Facades.</li>
+    </ul>
 
     <h4>The ten examples</h4>
     <table><thead><tr><th>#</th><th>Task</th><th>Dataset used in the paper or its project page</th></tr></thead><tbody id="pixTaskTable"></tbody></table>
 
     <h4>Limitations and successors</h4>
-    <ul>
-      <li><b>Needs paired data.</b> Every training input needs its aligned target. CycleGAN (Zhu et al., 2017) removes this requirement with a cycle-consistency loss.</li>
-      <li><b>Resolution.</b> pix2pixHD (Wang et al., 2018) uses multi-scale generators and discriminators to reach 2048×1024.</li>
-      <li><b>Label layouts.</b> SPADE / GauGAN (Park et al., 2019) feeds the label map into every normalisation layer, keeping semantic information from washing out.</li>
-      <li><b>Today</b>, diffusion-based models with image conditions (for example ControlNet) do many of the same jobs, but Pix2Pix's U-Net + PatchGAN recipe still appears inside many modern systems.</li>
+    <ul class="pts">
+      <li><b>Paired data needed</b> → CycleGAN (2017) adds cycle consistency for unpaired data.</li>
+      <li><b>Resolution</b> → pix2pixHD (2018), multi-scale G and D up to 2048×1024.</li>
+      <li><b>Label layouts</b> → SPADE / GauGAN (2019) feeds labels into every normalisation layer.</li>
+      <li><b>Today</b>, image-conditioned diffusion (e.g. ControlNet) does similar jobs; U-Net + PatchGAN still appear inside many systems.</li>
     </ul>
   </article>
 </div></section>
@@ -487,42 +495,51 @@ footer li{margin-bottom:4px;break-inside:avoid}
 
   <article class="explain">
     <h3>Generating images from sentences</h3>
-    <p>Text-to-image synthesis asks a model to draw a picture that matches a description such as <i>"a small yellow bird with black wings"</i>. It is much harder than Pix2Pix: the input is short and abstract, and many very different images fit the same sentence. Between 2016 and 2021 GANs were the leading approach. Most of this work used three benchmarks: <b>CUB-200-2011</b> birds and <b>Oxford-102</b> flowers, each image paired with ten human-written captions, and later the far more varied <b>MS-COCO</b>. The ten prompts here are written in the style of the CUB and Oxford-102 captions.</p>
+    <p class="tldr"><b>Text → image</b>: draw a picture that matches a caption. The input is short and many images fit it. GANs led this task from 2016 to 2021 on <b>CUB-200</b> birds, <b>Oxford-102</b> flowers and <b>MS-COCO</b>; the ten prompts here follow the CUB style.</p>
 
-    <h4>Step 1: encode the text</h4>
-    <p>A text encoder maps the sentence to a <b>sentence embedding</b> φ(t), a vector of a few hundred numbers. Reed et al. trained a character-level CNN-RNN so that embeddings of matching images and captions are close together. AttnGAN uses a bidirectional LSTM that also outputs one <b>feature vector per word</b>, which later stages use for attention.</p>
+    <div class="keq"><div class="keq-h"><span class="k">Pipeline</span>Stacked generation (general form)</div>
+      \[h_0=F_0\big(z,\,F^{ca}(\bar e)\big),\qquad h_i=F_i\big(h_{i-1},\,F^{attn}_i(e,h_{i-1})\big),\qquad x_i=G_i(h_i)\]
+      <p class="keq-n">\(\bar e\): sentence vector, \(e\): word vectors. GAN-INT-CLS has one stage, StackGAN two, AttnGAN three with attention.</p></div>
 
-    <h4>Step 2: condition the generator (GAN-INT-CLS, 2016)</h4>
-    <p>Reed et al. (ICML 2016) were the first to make a GAN draw from captions. The sentence embedding is compressed and concatenated with the noise z, then a DCGAN-style generator upsamples it to a 64×64 image. Two ideas made it work:</p>
-    <ul>
-      <li><b>Matching-aware discriminator (GAN-CLS).</b> D sees real images with matching text (real), real images with mismatched text (fake), and generated images with their text (fake). This teaches D to check both realism and agreement with the sentence. The panel at the right shows the three cases.</li>
-      <li><b>Manifold interpolation (GAN-INT).</b> Embeddings of two captions are averaged to create extra, unlabelled conditions. Because text embeddings of similar sentences lie close together, G learns to fill the space between them smoothly. Use the <i>Interpolate</i> slider to walk from one prompt's embedding to the next.</li>
-    </ul>
-    <p>Results matched colours and rough shapes, but at 64×64 they lacked detail and object parts were often malformed.</p>
+    <h4>GAN-INT-CLS (Reed et al., ICML 2016)</h4>
+    <p>A char-CNN-RNN embedding \(\varphi(t)\) is compressed to 128-d, concatenated with \(z\), and a DCGAN generator draws 64×64.</p>
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>Matching-aware discriminator (GAN-CLS)</div>
+      \[\mathcal{L}_D=-\Big[\log s_r+\tfrac12\big(\log(1-s_w)+\log(1-s_f)\big)\Big]\]
+      <p class="keq-n">\(s_r\): real image + right text, \(s_w\): real image + <b>wrong</b> text, \(s_f\): fake image + right text. D must check realism <i>and</i> agreement (panel at the right).</p></div>
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>Manifold interpolation (GAN-INT)</div>
+      \[\mathcal{L}_G \mathrel{+}= \mathbb{E}_{t_1,t_2}\Big[\log\big(1-D\big(G(z,\,\beta t_1+(1-\beta)t_2)\big)\big)\Big],\qquad\beta=0.5\]
+      <p class="keq-n">Blended captions act as extra conditions, so G fills the space between them smoothly. Try the <i>Interpolate</i> slider.</p></div>
 
-    <h4>Step 3: generate in stages (StackGAN, 2017)</h4>
-    <p>StackGAN (Zhang et al., ICCV 2017) splits the task, just as a painter sketches before adding detail. <b>Stage I</b> draws a 64×64 image with the basic shape and colours. <b>Stage II</b> takes that image and the text again, corrects defects and adds detail at 256×256. StackGAN also introduced <b>Conditioning Augmentation</b>: rather than using φ(t) directly, it samples the condition from a Gaussian <span class="mono">c ~ N(μ(φ), Σ(φ))</span> with a KL penalty toward N(0, I). This smooths the conditioning space and adds variety when only a few captions exist per image. On CUB, the Inception Score rose from 2.88 (GAN-INT-CLS) to 3.70.</p>
+    <h4>StackGAN (Zhang et al., ICCV 2017)</h4>
+    <p>Sketch, then refine: <b>Stage I</b> draws 64×64 shape and colour; <b>Stage II</b> reads the text again and fixes defects at 256×256.</p>
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>Conditioning augmentation</div>
+      \[\hat c\sim\mathcal{N}\big(\mu(\varphi_t),\,\Sigma(\varphi_t)\big),\qquad \mathcal{L}_G \mathrel{+}= \lambda\,D_{KL}\big(\mathcal{N}(\mu,\Sigma)\,\Vert\,\mathcal{N}(0,I)\big)\]
+      <p class="keq-n">Sampling the condition smooths the text space and adds variety. CUB Inception Score: 2.88 → <b>3.70</b>.</p></div>
 
-    <h4>Step 4: attend to words (AttnGAN, 2018)</h4>
-    <p>A single sentence vector blurs the meaning of individual words. AttnGAN (Xu et al., CVPR 2018) adds <b>word-level attention</b> to its 128×128 and 256×256 stages: for every image region, the generator looks up the most relevant words and uses their features to refine that region. Click a token above the stage strip to see an attention map of the kind AttnGAN visualised (on a coarse grid, as in the paper). AttnGAN also trains a <b>DAMSM</b> loss, a pretrained image-text matching model that rewards images whose sub-regions agree with specific words.</p>
-    <div class="eq">image stages: h₀ = F₀(z, c) → x₀ (64²) &nbsp;·&nbsp; h₁ = F₁(h₀, Attn(e, h₀)) → x₁ (128²) &nbsp;·&nbsp; h₂ = F₂(h₁, Attn(e, h₁)) → x₂ (256²)</div>
+    <h4>AttnGAN (Xu et al., CVPR 2018)</h4>
+    <p>One sentence vector blurs individual words, so the 128² and 256² stages attend to <b>words</b> per image region. Click a token above the stage strip to see an attention map.</p>
+    <div class="keq"><div class="keq-h"><span class="k">Attention</span>Word-context vector for region \(j\)</div>
+      \[c_j=\sum_{i}\beta_{j,i}\,e'_i,\qquad \beta_{j,i}=\frac{\exp\big(h_j^{\top}e'_i\big)}{\sum_{k}\exp\big(h_j^{\top}e'_k\big)},\qquad e'_i=Ue_i\]</div>
+    <div class="keq"><div class="keq-h"><span class="k">Loss</span>Generator objective</div>
+      \[\mathcal{L}=\sum_i\mathcal{L}_{G_i}+\lambda\,\mathcal{L}_{\text{DAMSM}}\]
+      <p class="keq-n">Each stage has its own conditional + unconditional adversarial loss; DAMSM rewards word-to-region agreement measured by a pretrained image–text matcher.</p></div>
 
     <h4>After AttnGAN</h4>
     <ul class="timeline">
-      <li><b>2019</b>DM-GAN adds a dynamic memory that rewrites word features based on the first-stage image; MirrorGAN regenerates the caption from the image to enforce consistency.</li>
-      <li><b>2022</b>DF-GAN returns to a single generator with deep text-image fusion blocks and a simpler matching-aware gradient penalty, beating stacked models with fewer parameters.</li>
-      <li><b>2023</b>GALIP and StyleGAN-T bring CLIP features into GANs. <b>GigaGAN</b> (Kang et al., CVPR 2023) scales a GAN to about one billion parameters trained on LAION, generates a 512px image in 0.13 s and upsamples to 4K (16 megapixels) in 3.66 s.</li>
+      <li><b>2019</b>DM-GAN (dynamic word memory), MirrorGAN (re-captions the image).</li>
+      <li><b>2022</b>DF-GAN: one generator with deep text-image fusion beats stacked models.</li>
+      <li><b>2023</b>GALIP, StyleGAN-T (CLIP features); <b>GigaGAN</b>: ~1B parameters, 512px in 0.13 s.</li>
     </ul>
+    <div class="cards3">
+      <div><b>GAN</b>One forward pass per stage: fast, smooth latent space for editing.</div>
+      <div><b>Diffusion</b>Dozens of steps, but stabler training, better coverage and prompt following; the standard since 2021.</div>
+    </div>
 
-    <h4>GANs vs. diffusion for text-to-image</h4>
-    <p>The diffusion models covered by Diffusion Explainer refine an image over dozens of denoising steps; a GAN generator produces the image in one forward pass (per stage). That makes GANs much faster at inference and gives them a smooth latent space for interpolation and editing. Diffusion models, in turn, train more stably, cover more of the data distribution and follow complex prompts better, which is why they became the standard after 2021.</p>
-
-    <h4>How to read the visualization</h4>
-    <ul>
-      <li><b>Model</b>: GAN-INT-CLS has one 64×64 stage; StackGAN has 64×64 then 256×256; AttnGAN has three stages and word attention.</li>
-      <li><b>Stage strip</b>: click a stage to see the image after that generator. Early stages are blurry and slightly malformed; later stages fix shape and add texture.</li>
-      <li><b>New noise z</b> keeps the text fixed and changes the random vector, which changes pose, background and framing while the described attributes stay.</li>
-      <li><b>Interpolate</b> blends this prompt's attributes with the next prompt's, mimicking interpolation between text embeddings.</li>
+    <h4>Using the controls</h4>
+    <ul class="pts">
+      <li><b>Model</b>: 1 stage (GAN-INT-CLS), 2 (StackGAN) or 3 with attention (AttnGAN).</li>
+      <li><b>Stage strip</b>: the image after each generator; early stages are blurry.</li>
+      <li><b>New noise z</b>: same text, new pose and background. <b>Interpolate</b>: blend toward the next prompt.</li>
     </ul>
   </article>
 </div></section>

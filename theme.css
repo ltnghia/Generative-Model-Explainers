@@ -120,3 +120,23 @@ html[data-explainer="diffusion"] table.cmp td:first-child{color:var(--muted);fon
 html[data-explainer="diffusion"] footer{border-top:1px solid var(--line);font-size:.86rem}
 html[data-explainer="diffusion"] input[type=range]{accent-color:var(--accent)}
 html[data-explainer="gan"] select,html[data-explainer="var"] select{max-width:420px}
+
+/* ---------- concise articles: summary line, key-equation cards, compact bullets ---------- */
+html[data-explainer="gan"] .explain{--acc:var(--gen)}
+html[data-explainer="diffusion"] article.explain{--acc:var(--accent)}
+html[data-explainer="var"] #article{--acc:var(--var)}
+html[data-explainer="var"] .mS{--acc:var(--swi)} html[data-explainer="var"] .mI{--acc:var(--inf)}
+.tldr{background:color-mix(in srgb,var(--acc) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--acc) 30%,var(--line));border-radius:10px;padding:10px 14px;margin:10px 0 16px;font-size:1rem;line-height:1.6}
+.keq{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:0 10px 10px 0;padding:10px 14px 9px;margin:12px 0}
+.keq-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:600 .92rem var(--font-body)}
+.keq-h .k{font:600 .66rem var(--font-mono);text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:999px;background:var(--acc);color:#fff}
+.keq .katex-display{margin:.55em 0 .35em;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+.keq-n{margin:0;font-size:.9rem;color:var(--muted);line-height:1.5}
+.pts{list-style:none;padding:0;margin:8px 0 12px;display:grid;gap:6px}
+.pts li{position:relative;padding-left:18px;line-height:1.55}
+.pts li::before{content:"";position:absolute;left:3px;top:.62em;width:7px;height:7px;border-radius:2px;background:var(--acc)}
+.cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0}
+.cards3>div{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:8px;padding:9px 12px;font-size:.92rem;line-height:1.5}
+.cards3 b{display:block;font-family:var(--font-display);font-size:.98rem;margin-bottom:2px}
+.explain .katex,#article .katex{font-size:1.05em}
+.explain p.small,#article p.small{font-size:.9rem;color:var(--muted)}

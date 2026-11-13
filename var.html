@@ -180,6 +180,10 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
 @media (max-width:760px){.aa-sec{margin-left:16px;margin-right:16px}}
 </style>
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="katex/katex.min.css">
+<script defer src="katex/katex.min.js"></script>
+<script defer src="katex/auto-render.min.js"></script>
+<script defer src="math.js"></script>
 </head>
 <body data-model="var">
 
@@ -328,73 +332,76 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
 
 <article id="article">
   <h2>What is VAR?</h2>
-  <p>Large language models write text one token at a time: each new token is predicted from everything before it. Early image generators borrowed this recipe directly. VQGAN, DALL·E 1 and Parti first compress an image into a grid of discrete tokens, then flatten the grid row by row and predict it left-to-right, top-to-bottom, the way you would read a page.</p>
-  <p>Raster order is a poor fit for pictures. A token near the top cannot see the content below it, nearby pixels in the same column end up far apart in the sequence, and a 1024×1024 image needs thousands of sequential forward passes.</p>
-  <p><b>VAR</b> (Visual AutoRegressive modeling, Tian et al., Peking University &amp; ByteDance) keeps the autoregressive recipe but changes what "next" means. Instead of predicting the next <em>token</em>, it predicts the next <em>scale</em>. It first produces a 1×1 token map holding the overall colour and layout, then a 2×2 map, then 3×3, and so on up to 16×16. Each map is conditioned on all the coarser ones, and every token inside a map is predicted in parallel. The paper received the NeurIPS 2024 Best Paper Award.</p>
-  <div class="eq">p(r<sub>1</sub>, r<sub>2</sub>, …, r<sub>K</sub>) = ∏<sub>k=1..K</sub> p( r<sub>k</sub> | r<sub>1</sub>, …, r<sub>k−1</sub> )   where r<sub>k</sub> ∈ [V]<sup>h<sub>k</sub>×w<sub>k</sub></sup></div>
-  <p>A painter works the same way: block in the big shapes, then refine. The visualization above shows this. Drag the <b>Scale</b> slider back to 1 and press <b>Generate</b> to watch the picture sharpen as each scale is added.</p>
+  <p class="tldr"><b>VAR</b> (Visual AutoRegressive modeling, Tian et al., NeurIPS 2024 Best Paper) keeps the GPT recipe but changes what "next" means: it predicts the next <b>scale</b>, 1×1 → 2×2 → … → 16×16, with every token of a scale predicted in parallel.</p>
 
-  <h2>Step 1 · Turning an image into multi-scale tokens</h2>
-  <p>VAR has two stages, trained separately. The first is a tokenizer: a VQGAN-style autoencoder whose encoder shrinks a 256×256 image 16× to a feature map <span class="mono">f</span> of 16×16 vectors. Its quantizer is replaced by a <b>multi-scale residual quantizer</b>:</p>
-  <ol>
-    <li>Start with the full residual <span class="mono">f</span> and an empty reconstruction <span class="mono">f̂ = 0</span>.</li>
-    <li>For each scale k: downsample the residual to h<sub>k</sub>×w<sub>k</sub> and replace every vector with its nearest entry in a codebook of <b>V = 4096</b> vectors. The indices form the token map <span class="mono">r<sub>k</sub></span>.</li>
-    <li>Look the codes up, upsample them back to 16×16, pass them through a small convolution φ<sub>k</sub>, add them to <span class="mono">f̂</span>, and subtract them from the residual.</li>
-    <li>The decoder turns the final <span class="mono">f̂</span>, the sum of all scales, into pixels.</li>
-  </ol>
-  <p>One codebook is shared by every scale. For 256×256 images VAR uses ten scales, <span class="mono">1, 2, 3, 4, 5, 6, 8, 10, 13, 16</span>, which is 680 tokens in total. Each scale only stores what the coarser scales missed, so the residual's energy falls quickly from step to step. Open the <b>Multi-scale tokenizer</b> tab to watch each stage of one step.</p>
+  <div class="keq"><div class="keq-h"><span class="k">Model</span>Next-scale prediction</div>
+    \[p(r_1,r_2,\dots,r_K)=\prod_{k=1}^{K}p\big(r_k\mid r_1,\dots,r_{k-1}\big),\qquad r_k\in[V]^{h_k\times w_k}\]
+    <p class="keq-n">Raster AR models predict one token at a time, left to right, and cannot see below. VAR conditions each whole map on all coarser maps.</p></div>
 
-  <h2>Step 2 · The scale-wise transformer</h2>
-  <p>The second stage is a decoder-only transformer in the GPT-2 mould with adaptive layer norm (AdaLN), as in DiT. For class-conditional ImageNet generation, the class embedding acts both as the <b>start token</b> [s], which predicts the 1×1 map, and as the AdaLN condition in every block.</p>
-  <ul>
-    <li><b>Input for scale k:</b> the reconstruction so far, <span class="mono">f̂<sub>k−1</sub></span>, interpolated to h<sub>k</sub>×w<sub>k</sub>, plus position and level embeddings. Output: a probability distribution over the 4096 codes at each of the h<sub>k</sub>·w<sub>k</sub> positions, all at once.</li>
-    <li><b>Training</b> uses teacher forcing. The whole sequence ([s], r<sub>1</sub>, …, r<sub>K−1</sub>) goes through the network in one pass under a <b>block-wise causal mask</b>: a token sees every token of its own scale and of all coarser scales, and nothing finer. Cross-entropy is computed on all 680 targets in parallel.</li>
-    <li><b>Inference</b> takes K forward passes with a KV cache: sample r<sub>k</sub> (top-k / top-p sampling plus classifier-free guidance), add its codes to f̂, interpolate, repeat. The decoder runs once at the end.</li>
-    <li><b>Model family:</b> depth d sets everything else, with width 64d and d attention heads, giving about 73,728·d³ parameters. VAR-d16, d20, d24 and d30 have 310M, 600M, 1.0B and 2.0B parameters.</li>
+  <div class="cards3">
+    <div><b>Raster AR</b>\(n^2\) sequential steps, total compute \(\mathcal{O}(n^6)\).</div>
+    <div><b>VAR</b>\(K\approx\log n\) steps, total compute \(\mathcal{O}(n^4)\): ~<b>20×</b> faster than AR baselines.</div>
+  </div>
+
+  <h2>Step 1 · Multi-scale tokenizer</h2>
+  <p>A VQGAN-style encoder maps a 256² image to a 16×16 feature map \(f\); a <b>multi-scale residual quantizer</b> turns it into \(K\) token maps.</p>
+  <div class="keq"><div class="keq-h"><span class="k">Quantizer</span>Residual quantization, scale by scale</div>
+    \[r_k=\mathcal{Q}\Big(\mathrm{down}\big(f-\hat f_{k-1},\;h_k\times w_k\big)\Big),\qquad \hat f_k=\hat f_{k-1}+\phi_k\Big(\mathrm{up}\big(Z[r_k],\;h_K\times w_K\big)\Big)\]
+    <p class="keq-n">One shared codebook \(Z\) with \(V=4096\). Scales 1, 2, 3, 4, 5, 6, 8, 10, 13, 16 → <b>680 tokens</b>. Each scale stores only what coarser scales missed.</p></div>
+
+  <h2>Step 2 · Scale-wise transformer</h2>
+  <div class="keq"><div class="keq-h"><span class="k">Loss</span>Teacher-forced cross-entropy, all scales at once</div>
+    \[\mathcal{L}=-\sum_{k=1}^{K}\sum_{j=1}^{h_kw_k}\log p_\theta\big(r_k^{(j)}\mid [s],\,r_{1},\dots,r_{k-1}\big)\]
+    <p class="keq-n">One pass under a <b>block-wise causal mask</b>: a token sees its own scale and all coarser ones, nothing finer.</p></div>
+  <ul class="pts">
+    <li><b>Input for scale k</b>: \(\hat f_{k-1}\) interpolated to \(h_k\times w_k\). The class embedding is the start token \([s]\) and the AdaLN condition.</li>
+    <li><b>Inference</b>: \(K\) forward passes with a KV cache, top-k/top-p + CFG; the decoder runs once.</li>
+    <li><b>Sizes</b>: depth \(d\) sets width \(64d\), \(\approx 73{,}728\,d^3\) parameters: d16 310M … d30 2.0B.</li>
   </ul>
 
-  <h2>Why next-scale prediction is fast</h2>
-  <p>For an n×n token grid, a raster model needs n² sequential steps, and with attention over a growing prefix its total compute grows as O(n⁶). VAR needs one step per scale, about O(log n) steps, and O(n⁴) total compute. In practice the paper reports VAR is roughly <b>20× faster</b> than the VQGAN and ViT-VQGAN autoregressive baselines, and DiT-XL/2 takes about 45× VAR's wall-clock time. The <b>Why it's fast</b> tab races the two orderings with one forward pass per tick.</p>
-
-  <h2>Results and scaling laws</h2>
-  <ul>
-    <li><b>ImageNet 256×256:</b> VAR-d30 improves the autoregressive baseline from FID 18.65 / IS 80.4 to FID <b>1.73</b> / IS <b>350.2</b> with rejection sampling (1.92 / 323.1 without). This was the first time a GPT-style model beat diffusion transformers on this benchmark.</li>
-    <li><b>ImageNet 512×512:</b> VAR-d36 reaches FID 2.63, against 3.04 for DiT-XL/2.</li>
-    <li><b>Scaling laws:</b> test loss follows a power law in model size, for example L ≈ (2.0·N)<sup>−0.23</sup> on the last scale, with Pearson correlations near −0.998. That is the kind of predictable scaling seen in language models.</li>
-    <li><b>Zero-shot editing:</b> if you teacher-force the ground-truth tokens outside a mask and let the model fill in the rest, you get in-painting, out-painting and class-conditional editing without any fine-tuning.</li>
+  <h2>Results</h2>
+  <ul class="pts">
+    <li><b>ImageNet 256</b>: FID 18.65 → <b>1.73</b>, IS 80.4 → <b>350.2</b> (VAR-d30): first GPT-style model to beat diffusion transformers.</li>
+    <li><b>ImageNet 512</b>: FID 2.63 vs 3.04 for DiT-XL/2.</li>
+    <li><b>Scaling law</b>: \(L\approx(2.0\cdot N)^{-0.23}\), correlation ≈ −0.998, as in LLMs.</li>
+    <li><b>Zero-shot editing</b>: in-/out-painting by teacher-forcing tokens outside a mask.</li>
   </ul>
-  <div class="callout cV">VAR left three obvious gaps: it only handles class labels, a 4096-entry codebook limits how much detail the tokenizer keeps, and the causal attention over all previous scales needs a KV cache that keeps growing. SWITTI addresses the first and third; Infinity addresses the first two.</div>
+  <div class="callout cV">Three gaps: class labels only, a 4096-code vocabulary that loses detail, and a KV cache that keeps growing. SWITTI fixes the first and third; Infinity the first two.</div>
 
+  <section class="mS">
   <h2 class="cS">SWITTI<span class="tag">text-to-image</span></h2>
-  <p><b>SWITTI</b> (Voronov et al., Yandex Research, CVPR 2025) is a scale-wise transformer for text-to-image generation. It starts from the VAR recipe and makes a series of changes, each motivated by a measurement.</p>
-  <h3>Text conditioning</h3>
-  <p>Prompts are encoded by two text encoders, CLIP ViT-L and OpenCLIP ViT-bigG, whose token embeddings are concatenated along the channel axis. Each transformer block gains a <b>cross-attention</b> layer between self-attention and the feed-forward network. The pooled bigG embedding, plus SDXL-style crop-coordinate embeddings, drives AdaLN, which is where the class embedding used to go.</p>
-  <h3>Keeping training stable</h3>
-  <p>Scaling VAR to text-to-image made activation norms blow up during training. SWITTI fixes this by computing the prediction head in FP32 under mixed precision and by adding <em>sandwich normalization</em> (extra norms after attention and FFN). It also adopts RMSNorm, QK-norm, normalized 2D RoPE and SwiGLU feed-forward layers.</p>
-  <h3>Dropping causal attention</h3>
-  <p>The authors measured where a causal scale-wise model actually looks and found that attention concentrates on the <em>current</em> scale. Earlier scales already reach the model through its input, which is the upsampled running sum f̂<sub>k−1</sub>. SWITTI therefore restricts self-attention to tokens of the current scale. There is no KV cache, which saves up to 2.3 GB of memory per 1024² image and makes sampling about 21% faster. In human evaluation the non-causal model is on par with or slightly better than the causal variant. Switch the model to SWITTI and open <b>Attention across scales</b> to compare the masks.</p>
-  <h3>Guidance only where it matters</h3>
-  <p>Classifier-free guidance doubles the work at every step. SWITTI applies guidance (scale 6) on the early, structure-defining scales and switches it off on the last two, which are the most expensive. This gives about 32% extra speed-up and fewer fine-grained artifacts, though the paper notes late guidance can still help render small text.</p>
-  <h3>Tokenizer, data and speed</h3>
-  <p>SWITTI reuses VAR's tokenizer with its encoder and codebook frozen, fine-tuning only the decoder at 512² (L1, LPIPS and adversarial losses). The model has about 2.5B parameters (d = 30). It is pre-trained at 256² and 512² with 10 scales, then works at 1024² with 14 scales. Training data is about 100M image–text pairs filtered from roughly 6B web pairs and re-captioned with LLaVA and ShareGPT4V, followed by fine-tuning on about 40K curated pairs. A full 1024² generation takes about <b>0.5 s</b> on an A100, against 2.3 s for SDXL (25 steps) and 3.9 s for SD3-Medium.</p>
-
-  <h2 class="cI">Infinity<span class="tag">bitwise tokens</span></h2>
-  <p><b>Infinity</b> (Han et al., ByteDance, CVPR 2025) comes from the same group as VAR. Its starting point is the tokenizer: with only 4096 codes, fine detail is lost before the transformer even sees it. Increasing the vocabulary to 2³² codes would make reconstructions much sharper, but a softmax head over 2³² classes would need h·2³² ≈ 8.8 trillion weights at width h = 2048. Infinity's answer is to predict <b>bits</b> instead of indices.</p>
-  <h3>Bitwise multi-scale residual quantizer</h3>
-  <p>The scale-by-scale residual scheme stays the same, but each residual vector is quantized to d binary values, the signs of its d dimensions after projection onto a sphere. This is binary spherical quantization (BSQ). The implicit vocabulary is 2<sup>d</sup>, and BSQ's entropy term costs O(d) rather than the O(2<sup>d</sup>) of lookup-free quantization (LFQ). That lets the tokenizer scale to 2⁶⁴ while LFQ runs out of memory at d = 20. The text-to-image model uses d = 32. On ImageNet 256 the 2³² tokenizer reaches rFID 0.61, better than the continuous SD VAE's 0.87.</p>
-  <h3>Infinite-Vocabulary Classifier (IVC)</h3>
-  <p>Instead of one 2<sup>d</sup>-way softmax, IVC attaches d independent binary classifiers, one per bit. Parameter count drops from h·2<sup>d</sup> to h·2d, which is 99.95% fewer weights already at d = 16. Bitwise prediction is also more forgiving: two codes that differ in one bit are close in feature space, so a nearly-right guess is still useful. The <b>Prediction head</b> tab shows both kinds of output for any token you hover.</p>
-  <h3>Bitwise Self-Correction (BSC)</h3>
-  <p>Teacher forcing trains each scale on perfect inputs, but at inference the model consumes its own, imperfect samples, and errors pile up. BSC randomly flips bits of each scale with a probability drawn from U[0, p], then recomputes the residual and re-quantizes the targets for all later scales. The model therefore learns to correct mistakes from coarser scales. It adds no extra compute, and p = 30% worked best. Try it in the <b>Bitwise self-correction</b> tab.</p>
-  <h3>Other changes</h3>
-  <ul>
-    <li><b>Text encoder:</b> Flan-T5, injected by cross-attention in every block.</li>
-    <li><b>Positions:</b> 2D RoPE on each scale plus learnable scale embeddings, replacing VAR's absolute position embeddings, which handle varying sequence lengths poorly. This also converges faster.</li>
-    <li><b>Aspect ratios:</b> a predefined scale schedule for each aspect ratio keeps tokens per scale roughly equal, so Infinity can generate 1:1, 4:3, 16:9 and even 1:3 or 3:1 images. VAR was square-only.</li>
-    <li><b>Scales:</b> a 1024×1024 image is generated in 13 scales growing from 1×1 to 64×64. Training runs progressively at 256, 512 and then 1024.</li>
+  <p class="tldr"><b>SWITTI</b> (Voronov et al., Yandex, CVPR 2025): VAR for text, made stable, cache-free and cheaper to guide. ≈2.5B parameters, ≈<b>0.5 s</b> per 1024² image (SDXL 2.3 s, SD3-M 3.9 s).</p>
+  <div class="keq"><div class="keq-h"><span class="k">Key idea</span>Scale-local attention (no KV cache)</div>
+    \[M^{\text{VAR}}_{ij}=\mathbb{1}\big[\mathrm{sc}(j)\le\mathrm{sc}(i)\big]\quad\longrightarrow\quad M^{\text{SWITTI}}_{ij}=\mathbb{1}\big[\mathrm{sc}(j)=\mathrm{sc}(i)\big]\]
+    <p class="keq-n">Attention concentrated on the current scale anyway, and coarser scales arrive through the input \(\hat f_{k-1}\). Saves up to 2.3 GB per 1024² image, ~21% faster. See <b>Attention across scales</b>.</p></div>
+  <div class="keq"><div class="keq-h"><span class="k">Guidance</span>CFG only on early scales</div>
+    \[\ell_k=\begin{cases}\ell_\varnothing+w\,(\ell_c-\ell_\varnothing), & k\le K-2\\[2pt] \ell_c, & k>K-2\end{cases}\qquad w=6\]
+    <p class="keq-n">The last two scales hold most tokens; skipping guidance there gives ~32% more speed and fewer fine artifacts.</p></div>
+  <ul class="pts">
+    <li><b>Text</b>: CLIP ViT-L + OpenCLIP bigG → <b>cross-attention</b> in every block; pooled bigG → AdaLN.</li>
+    <li><b>Stability</b>: FP32 head, sandwich norm, RMSNorm, QK-norm, 2D RoPE, SwiGLU.</li>
+    <li><b>Tokenizer &amp; data</b>: VAR's tokenizer, decoder fine-tuned at 512²; ~100M re-captioned pairs + 40K curated.</li>
   </ul>
-  <h3>Results</h3>
-  <p>Infinity-2B scores GenEval 0.73 (with prompt rewriting), ImageReward 0.962 and HPSv2.1 32.25, against 0.62 / 0.871 / 30.91 for SD3-Medium, and wins 66% of human comparisons with it. It generates a 1024² image in about <b>0.8 s</b>, 2.6× faster than SD3-Medium. Across model sizes from 125M to 4.7B parameters, validation loss tracks downstream quality closely (correlation −0.983 with GenEval), and larger models benefit more from larger vocabularies.</p>
+  </section>
+
+  <section class="mI">
+  <h2 class="cI">Infinity<span class="tag">bitwise tokens</span></h2>
+  <p class="tldr"><b>Infinity</b> (Han et al., ByteDance, CVPR 2025) attacks the tokenizer bottleneck: predict <b>bits</b> instead of code indices, so the vocabulary can grow to \(2^{32}\) and beyond.</p>
+  <div class="keq"><div class="keq-h"><span class="k">Quantizer</span>Binary spherical quantization (BSQ)</div>
+    \[q(z)=\frac{1}{\sqrt d}\,\mathrm{sign}\!\Big(\frac{z}{\lVert z\rVert}\Big)\in\Big\{\pm\tfrac{1}{\sqrt d}\Big\}^{d},\qquad |\mathcal{V}|=2^{d},\ d=32\]
+    <p class="keq-n">Entropy term costs \(\mathcal{O}(d)\), not \(\mathcal{O}(2^d)\). ImageNet rFID <b>0.61</b>, better than the continuous SD VAE (0.87).</p></div>
+  <div class="keq"><div class="keq-h"><span class="k">Head</span>Infinite-Vocabulary Classifier (IVC)</div>
+    \[p_\theta(r)=\prod_{b=1}^{d}p_\theta\big(r^{(b)}\big),\qquad \#\text{params}:\ h\cdot2^{d}\ \longrightarrow\ h\cdot2d\]
+    <p class="keq-n">A \(2^{32}\)-way softmax at \(h=2048\) would need ≈8.8T weights. Near-miss codes differ in one bit, so mistakes stay small. See <b>Prediction head</b>.</p></div>
+  <div class="keq"><div class="keq-h"><span class="k">Training</span>Bitwise Self-Correction (BSC)</div>
+    \[\tilde r_k=\mathrm{flip}\big(r_k,\;p'\big),\quad p'\sim\mathcal{U}[0,p],\ p=0.3\quad\Rightarrow\quad\text{re-quantize targets }r_{k+1},\dots,r_K\]
+    <p class="keq-n">The model learns to repair errors from coarser scales, at no extra cost. Try <b>Bitwise self-correction</b>.</p></div>
+  <ul class="pts">
+    <li><b>Text</b>: Flan-T5 via cross-attention. <b>Positions</b>: 2D RoPE + learnable scale embeddings.</li>
+    <li><b>Any aspect ratio</b> (1:3 … 3:1); 1024² in 13 scales, 1×1 → 64×64.</li>
+    <li><b>Results</b>: GenEval 0.73, ImageReward 0.962, HPSv2.1 32.25 (SD3-M: 0.62 / 0.871 / 30.91); ≈<b>0.8 s</b> per 1024² image.</li>
+  </ul>
+  </section>
 
   <h2>VAR vs. SWITTI vs. Infinity</h2>
   <div class="tablewrap">
@@ -402,25 +409,27 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
     <thead><tr><th></th><th class="cV">VAR</th><th class="cS">SWITTI</th><th class="cI">Infinity</th></tr></thead>
     <tbody>
       <tr><td>Venue</td><td>NeurIPS 2024 (Best Paper)</td><td>CVPR 2025</td><td>CVPR 2025</td></tr>
-      <tr><td>Task</td><td>Class → image (ImageNet)</td><td>Text → image</td><td>Text → image, any aspect ratio</td></tr>
-      <tr><td>Tokenizer</td><td>Multi-scale residual VQ-VAE, shared codebook V = 4096</td><td>VAR's tokenizer, encoder and codebook frozen, decoder fine-tuned</td><td>Bitwise multi-scale residual quantizer (BSQ), vocabulary 2<sup>d</sup>, d = 32 for T2I</td></tr>
-      <tr><td>Scales</td><td>10 for 256² (1→16, 680 tokens)</td><td>10 for 512², 14 for 1024²</td><td>13 for 1024² (1→64)</td></tr>
-      <tr><td>Attention across scales</td><td>Block-wise causal, KV cache</td><td>Current scale only, no KV cache</td><td>Block-wise causal, KV cache</td></tr>
-      <tr><td>Conditioning</td><td>Class embedding as start token + AdaLN</td><td>CLIP ViT-L + OpenCLIP bigG, cross-attention; pooled text → AdaLN</td><td>Flan-T5, cross-attention</td></tr>
-      <tr><td>Output head</td><td>4096-way softmax</td><td>4096-way softmax (FP32)</td><td>d binary classifiers (IVC)</td></tr>
-      <tr><td>Positions</td><td>Learned absolute + level embeddings</td><td>Normalized 2D RoPE</td><td>2D RoPE + learnable scale embeddings</td></tr>
-      <tr><td>Guidance</td><td>CFG, strength ramps up with scale in the official sampler</td><td>CFG 6, switched off on last 2 scales</td><td>CFG</td></tr>
-      <tr><td>Main size</td><td>2.0B (d30)</td><td>≈2.5B (d30)</td><td>2.2B (Infinity-2B)</td></tr>
-      <tr><td>Headline numbers</td><td>FID 1.73, IS 350.2 (ImageNet 256)</td><td>≈0.5 s per 1024² image, 7× faster than diffusion</td><td>GenEval 0.73, ≈0.8 s per 1024² image</td></tr>
+      <tr><td>Task</td><td>Class → image</td><td>Text → image</td><td>Text → image, any aspect ratio</td></tr>
+      <tr><td>Tokenizer</td><td>Residual VQ, \(V=4096\)</td><td>VAR's, decoder fine-tuned</td><td>Bitwise BSQ, \(2^{32}\)</td></tr>
+      <tr><td>Scales</td><td>10 (256², 680 tokens)</td><td>10 (512²), 14 (1024²)</td><td>13 (1024², 1→64)</td></tr>
+      <tr><td>Attention across scales</td><td>Block causal + KV cache</td><td>Current scale only</td><td>Block causal + KV cache</td></tr>
+      <tr><td>Conditioning</td><td>Class: start token + AdaLN</td><td>2× CLIP, cross-attn + AdaLN</td><td>Flan-T5, cross-attn</td></tr>
+      <tr><td>Output head</td><td>4096-way softmax</td><td>4096-way softmax (FP32)</td><td>\(d\) binary classifiers</td></tr>
+      <tr><td>Guidance</td><td>CFG, ramps with scale</td><td>CFG 6, off on last 2</td><td>CFG</td></tr>
+      <tr><td>Main size</td><td>2.0B</td><td>≈2.5B</td><td>2.2B</td></tr>
+      <tr><td>Headline</td><td>FID 1.73, IS 350.2</td><td>≈0.5 s / 1024²</td><td>GenEval 0.73, ≈0.8 s / 1024²</td></tr>
     </tbody>
   </table>
   </div>
 
-  <h2>Where next-scale prediction went next</h2>
-  <p>VAR started a large family of follow-ups. <b>HART</b> pairs discrete scale-wise tokens with a small diffusion model for the continuous residual. <b>FlowAR</b> replaces the per-scale categorical prediction with flow matching, and <b>FlexVAR</b> predicts each scale directly rather than as a residual. ByteDance scaled the bitwise line to <b>Infinity-8B</b> and then to <b>InfinityStar</b> (NeurIPS 2025 Oral), an 8B spacetime-pyramid model that generates 720p video and scores 83.74 on VBench, ahead of HunyuanVideo, while being roughly 10× faster than leading diffusion video models.</p>
+  <h2>What came next</h2>
+  <ul class="pts">
+    <li><b>HART</b>: discrete scale tokens + a small diffusion model for the residual. <b>FlowAR</b>: flow matching per scale. <b>FlexVAR</b>: predicts scales directly, not residuals.</li>
+    <li><b>Infinity-8B</b> → <b>InfinityStar</b> (NeurIPS 2025 Oral): 720p video, VBench 83.74, ~10× faster than leading diffusion video models.</li>
+  </ul>
 
   <h2>About this explainer</h2>
-  <p>The interactive part runs a real residual quantizer on procedurally drawn pictures, so the token maps, residuals and error-correction effects are computed rather than faked. To keep it fast and self-contained, the toy simplifies three things. Its latent space is a downsampled RGB image rather than a learned 16× latent. Its VQ codebook is a fixed 16×16×16 grid of 4096 colour offsets rather than learned vectors (it has no φ<sub>k</sub> convolutions). The Infinity mode uses 12 bits per token, 4 successive binary refinements per colour channel, instead of BSQ's 32 sign bits on a hypersphere. Scale schedules are those of the real models: VAR 256², VAR's 512² schedule as used by SWITTI, and Infinity 1024² at 1:1.</p>
+  <p class="small">The demo runs a real residual quantizer on procedural pictures, with three simplifications: the latent is a downsampled RGB image, the codebook is a fixed grid of 4096 colour offsets (no \(\phi_k\)), and Infinity mode uses 12 bits per token instead of 32. Scale schedules match the real models.</p>
 
   <h2>References</h2>
   <ol class="refs">

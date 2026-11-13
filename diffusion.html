@@ -110,6 +110,10 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:30px 20px 40p
 .aa-hint{font:400 12px var(--font-body,inherit);color:var(--muted);margin-left:6px}
 </style>
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="katex/katex.min.css">
+<script defer src="katex/katex.min.js"></script>
+<script defer src="katex/auto-render.min.js"></script>
+<script defer src="math.js"></script>
 </head>
 <body>
 <header class="top">
@@ -713,76 +717,104 @@ const FLUX_SVG=`<svg viewBox="0 0 760 250" font-family="Inter,Segoe UI,sans-seri
 <text x="400" y="242" fill="#777">modulates every block (scale/shift/gate)</text><text x="270" y="198" text-anchor="middle" fill="#777">3D RoPE positions</text></svg>`;
 
 const ARTICLES={
-ddpm:`
+ddpm:String.raw`
 <h2>What is a diffusion model?</h2>
-<p>A diffusion model is a generative model that learns to <b>undo noise</b>. Training starts from a fixed <i>forward process</i>: take a real image x<sub>0</sub> and, over T = 1000 small steps, mix in Gaussian noise until nothing of the image remains. The network is then trained on the <i>reverse</i> task. Given a noisy image and how noisy it is, predict what to remove. At generation time we start from pure noise and run the learned reverse process step by step. Use the timeline above to scrub through it.</p>
-<h3>The forward process has a closed form</h3>
-<p>Each forward step multiplies the image by √(1 − β<sub>t</sub>) and adds noise of variance β<sub>t</sub>. Composing the steps gives a convenient shortcut that jumps straight to any noise level t. Try it in the forward process explorer:</p>
-<div class="eq">q(x<sub>t</sub> | x<sub>0</sub>) = 𝒩( √ᾱ<sub>t</sub> · x<sub>0</sub>, (1 − ᾱ<sub>t</sub>) · I ),&nbsp;&nbsp; ᾱ<sub>t</sub> = ∏<sub>s≤t</sub> (1 − β<sub>s</sub>)</div>
-<p>DDPM uses a <b>linear schedule</b> with β rising from 10⁻⁴ to 0.02. By t = 1000, ᾱ<sub>t</sub> ≈ 4·10⁻⁵, so x<sub>T</sub> is effectively pure noise. Later work (Improved DDPM) proposed a <b>cosine schedule</b> that destroys information more evenly, because the linear one wastes many steps at near-pure noise.</p>
-<h3>Training: predict the noise</h3>
-<p>Sample an image, a random timestep t and a noise vector ε. Build x<sub>t</sub> with the formula above and ask a U-Net ε<sub>θ</sub>(x<sub>t</sub>, t) to recover ε. The loss is a plain mean-squared error:</p>
-<div class="eq">ℒ = 𝔼<sub>x₀, t, ε</sub> ‖ ε − ε<sub>θ</sub>( √ᾱ<sub>t</sub> x<sub>0</sub> + √(1 − ᾱ<sub>t</sub>) ε, t ) ‖²</div>
-<p>Predicting ε is equivalent to predicting the clean image, since x̂<sub>0</sub> = (x<sub>t</sub> − √(1−ᾱ<sub>t</sub>) ε̂) / √ᾱ<sub>t</sub>. The right-hand panel of the refiner shows this x̂<sub>0</sub>. Early on it is a blurry average of everything plausible; it sharpens as the noise falls. Up to a scale factor, ε<sub>θ</sub> is also an estimate of the <i>score</i> ∇ log p(x<sub>t</sub>), which links DDPM to score-based models and stochastic differential equations (Song et al., 2021).</p>
+<p class="tldr"><b>Learn to undo noise.</b> A fixed forward process mixes Gaussian noise into an image over \(T=1000\) steps; a network learns the reverse. Generation starts from pure noise and denoises step by step (Ho et al., 2020). Scrub the timeline above.</p>
+
+<div class="keq"><div class="keq-h"><span class="k">Forward</span>Closed-form noising</div>
+\[q(x_t\mid x_0)=\mathcal{N}\big(\sqrt{\bar\alpha_t}\,x_0,\;(1-\bar\alpha_t)\,I\big),\qquad \bar\alpha_t=\prod_{s\le t}(1-\beta_s)\]
+<p class="keq-n">Linear schedule \(\beta_t: 10^{-4}\to0.02\); at \(t=1000\), \(\bar\alpha_t\approx4\cdot10^{-5}\). Improved DDPM's cosine schedule spends fewer steps on near-pure noise.</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Loss</span>Noise prediction (simple loss)</div>
+\[\mathcal{L}_{\text{simple}}=\mathbb{E}_{x_0,t,\epsilon}\Big\lVert\epsilon-\epsilon_\theta\big(\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,\;t\big)\Big\rVert^2\]
+<p class="keq-n">Plain MSE at a random noise level. Up to scale, \(\epsilon_\theta\) estimates the score \(\nabla\log p(x_t)\).</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Identity</span>Clean-image estimate</div>
+\[\hat x_0=\frac{x_t-\sqrt{1-\bar\alpha_t}\,\hat\epsilon}{\sqrt{\bar\alpha_t}}\]
+<p class="keq-n">Shown in the refiner's right panel: a blurry average early, sharp at the end.</p></div>
+
 <div class="diagram">${UNET_SVG}</div>
-<p>The denoiser is a <b>U-Net</b>: an encoder that halves resolution several times, a decoder that restores it, and skip connections between matching resolutions. It uses ResNet blocks with self-attention at low resolution. The timestep enters every block through a sinusoidal embedding. In class-conditional models, a learned class embedding is added to it. That class embedding is the "condition" stage in the demo.</p>
-<h3>Sampling: ancestral (DDPM) vs deterministic (DDIM)</h3>
-<p>DDPM samples by drawing x<sub>t−1</sub> from a Gaussian whose mean uses ε̂ and adding fresh noise at every step. <b>DDIM</b> (Song, Meng, Ermon, 2021) showed that the same trained network admits a deterministic sampler (η = 0) that can skip timesteps. 50 steps then give results close to 1000-step DDPM. Switch the sampler in the demo: DDIM's trajectory is smooth, while DDPM injects new noise each step, so the same seed can end somewhere else.</p>
-<div class="eq">x<sub>t−1</sub> = √ᾱ<sub>t−1</sub> · x̂<sub>0</sub> + √(1 − ᾱ<sub>t−1</sub> − σ<sub>t</sub>²) · ε̂ + σ<sub>t</sub> z,&nbsp;&nbsp; σ<sub>t</sub> = η · √((1−ᾱ<sub>t−1</sub>)/(1−ᾱ<sub>t</sub>)) · √(1 − ᾱ<sub>t</sub>/ᾱ<sub>t−1</sub>)</div>
-<h3>Conditioning and classifier-free guidance</h3>
-<p>The original DDPM was unconditional: it simply generated "a CIFAR-10 image". To control <i>what</i> is generated, the network is given a condition c, such as a class label here or a text prompt in Stable Diffusion. <b>Classifier-free guidance</b> (Ho and Salimans, 2022) trains one network both with and without the condition by randomly dropping c. At sampling time it extrapolates away from the unconditional prediction:</p>
-<div class="eq">ε̂ = ε<sub>θ</sub>(x<sub>t</sub>, ∅) + w · ( ε<sub>θ</sub>(x<sub>t</sub>, c) − ε<sub>θ</sub>(x<sub>t</sub>, ∅) )</div>
-<p>In the demo, w = 0 produces samples from <i>any</i> class, w = 1 is the plain conditional model, and larger w commits to the class earlier and more strongly. Guidance trades diversity for fidelity. Every guided step needs two network evaluations, a cost that FLUX later removes.</p>
-<div class="callout"><b>Takeaway.</b> A diffusion model is a denoiser applied repeatedly with a schedule. Everything in Stable Diffusion and FLUX keeps this idea and changes <i>where</i> the denoising happens (latent space), <i>what</i> network does it (U-Net → transformer), and <i>which path</i> from noise to data is learned (diffusion → rectified flow).</div>`,
-sd:`
+<p>The denoiser is a <b>U-Net</b> (ResNet blocks, self-attention at low resolution, skip connections). The timestep, plus a class embedding when conditional, enters every block.</p>
+
+<div class="keq"><div class="keq-h"><span class="k">Sampling</span>DDPM / DDIM update</div>
+\[x_{t-1}=\sqrt{\bar\alpha_{t-1}}\,\hat x_0+\sqrt{1-\bar\alpha_{t-1}-\sigma_t^2}\;\hat\epsilon+\sigma_t z,\qquad \sigma_t=\eta\sqrt{\tfrac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}}\sqrt{1-\tfrac{\bar\alpha_t}{\bar\alpha_{t-1}}}\]
+<p class="keq-n">\(\eta=1\): DDPM, fresh noise every step. \(\eta=0\): DDIM, deterministic and able to skip steps (50 ≈ 1000). Switch the sampler to compare.</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Guidance</span>Classifier-free guidance</div>
+\[\hat\epsilon=\epsilon_\theta(x_t,\varnothing)+w\,\big(\epsilon_\theta(x_t,c)-\epsilon_\theta(x_t,\varnothing)\big)\]
+<p class="keq-n">One network trained with \(c\) randomly dropped. \(w=0\): any class, \(w=1\): plain conditional, \(w>1\): stronger and less diverse. Costs two passes per step.</p></div>
+
+<div class="callout"><b>Takeaway.</b> A diffusion model is a denoiser applied repeatedly with a schedule. SD and FLUX change <i>where</i> it runs (latent space), <i>what</i> network runs (U-Net → transformer) and <i>which path</i> it learns (diffusion → rectified flow).</div>`,
+sd:String.raw`
 <h2>Stable Diffusion: diffusion in a learned latent space</h2>
-<p>Stable Diffusion is the open-weights release of <b>Latent Diffusion Models</b> (Rombach et al., CVPR 2022), trained with Stability AI and Runway. Its key observation is that most pixel-level detail is perceptually redundant. A separate autoencoder can compress an image 8× per side, and the expensive diffusion model only has to model the compressed code. The pipeline has three parts, matching the three stages of the demo.</p>
-<h3>1 · Text Representation Generator (CLIP text encoder)</h3>
-<p>The prompt is split by CLIP's byte-pair-encoding tokenizer into at most <b>77 tokens</b>, including start and end tokens and padding. SD 1.x uses the frozen text tower of OpenAI's <b>CLIP ViT-L/14</b>, which outputs one <b>768-dimensional</b> vector per token. CLIP was trained to align images and captions, so its embeddings already "know" what visual concepts words refer to. SD 2.x switched to OpenCLIP ViT-H (1024-d), and SDXL concatenates two encoders (CLIP ViT-L and OpenCLIP ViT-bigG) into 2048-d token features.</p>
-<h3>2 · Image Representation Refiner (U-Net in latent space)</h3>
-<p>Generation starts from random Gaussian noise of shape <b>4 × 64 × 64</b> for a 512 × 512 image. A ~860M-parameter U-Net predicts the noise at each step, exactly as in DDPM. The text enters through <b>cross-attention</b> in the U-Net's transformer blocks: queries come from image features, keys and values from the 77 token embeddings. Each spatial location can therefore "look up" the words relevant to it.</p>
+<p class="tldr"><b>Latent Diffusion</b> (Rombach et al., CVPR 2022): a frozen autoencoder compresses the image 8× per side, and the diffusion model works on that small code. Three parts: <b>CLIP</b> text encoder → <b>U-Net</b> denoiser → <b>VAE</b> decoder.</p>
+
+<div class="keq"><div class="keq-h"><span class="k">Loss</span>Latent diffusion objective</div>
+\[\mathcal{L}_{\text{LDM}}=\mathbb{E}_{z=\mathcal{E}(x),\,y,\,\epsilon,\,t}\Big\lVert\epsilon-\epsilon_\theta\big(z_t,\,t,\,\tau_\theta(y)\big)\Big\rVert^2\]
+<p class="keq-n">The DDPM loss, but on \(z\in\mathbb{R}^{4\times64\times64}\) instead of \(x\in\mathbb{R}^{3\times512\times512}\): each U-Net pass is <b>48×</b> cheaper. \(\tau_\theta\): the text encoder.</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Attention</span>Text cross-attention in the U-Net</div>
+\[\mathrm{Attn}(Q,K,V)=\mathrm{softmax}\!\Big(\frac{QK^{\top}}{\sqrt d}\Big)V,\qquad Q=W_Q\,\varphi(z_t),\;\;K=W_K\,\tau_\theta(y),\;\;V=W_V\,\tau_\theta(y)\]
+<p class="keq-n">Every latent position looks up the words relevant to it.</p></div>
 <div class="diagram">${UNET_SVG}</div>
-<div class="eq">Attention(Q, K, V) = softmax(Q Kᵀ / √d) · V,&nbsp;&nbsp; Q = W<sub>q</sub> · φ(z<sub>t</sub>),&nbsp; K = W<sub>k</sub> · τ(prompt),&nbsp; V = W<sub>v</sub> · τ(prompt)</div>
-<p>SD uses a <b>scaled-linear</b> noise schedule (√β from √0.00085 to √0.012, T = 1000). Sampling typically uses 20–50 steps with a fast solver: PNDM was the original default; DDIM, Euler and DPM-Solver++ are common. The demo uses DDIM with "leading" timestep spacing, so a 50-step run visits t = 981, 961, …, 1, as the Diffusion Explainer timeline does.</p>
-<h3>Classifier-free guidance and negative prompts</h3>
-<p>At every step the U-Net runs twice: once with the prompt and once with an empty prompt. The two noise predictions are combined with guidance scale w, default <b>7.5</b>. Larger w makes the image follow the prompt more closely but less varied and, past ~15, often over-saturated. Compare the guidance row above. A <b>negative prompt</b> simply replaces the empty prompt in the unconditional branch, so guidance pushes <i>away</i> from it.</p>
-<h3>3 · Image Decoder (VAE)</h3>
-<p>The final latent is divided by the scaling factor <b>0.18215</b>, which normalised the latents to unit variance during training. The VAE decoder then upsamples it 8× to a 512 × 512 RGB image. The VAE was trained once, separately, with reconstruction, perceptual and adversarial losses, and it stays frozen while the diffusion U-Net trains. This makes each U-Net pass about <b>48× cheaper</b> than in pixel space (16,384 vs 786,432 values).</p>
-<h3>How the family evolved</h3>
-<ul>
-<li><b>SD 1.4 / 1.5</b> (2022): 512², CLIP ViT-L/14, ε-prediction, trained on LAION subsets.</li>
-<li><b>SD 2.0 / 2.1</b> (late 2022): OpenCLIP ViT-H text encoder, 768² model with <i>v-prediction</i>.</li>
-<li><b>SDXL</b> (2023): ~2.6B-parameter U-Net, two text encoders, native 1024², size and crop conditioning, and an optional refiner model.</li>
-<li><b>SD 3 / 3.5</b> (2024): drops the U-Net for an <b>MMDiT</b> transformer, trains with <b>rectified flow</b>, uses three text encoders (CLIP-L, CLIP-G, T5-XXL) and a <b>16-channel VAE</b>. This is the design FLUX builds on; see the FLUX tab.</li>
+
+<div class="keq"><div class="keq-h"><span class="k">Guidance</span>CFG and negative prompts</div>
+\[\hat\epsilon=\epsilon_\theta\big(z_t,\tau(y_{\text{neg}})\big)+w\,\Big(\epsilon_\theta\big(z_t,\tau(y)\big)-\epsilon_\theta\big(z_t,\tau(y_{\text{neg}})\big)\Big),\qquad w=7.5\]
+<p class="keq-n">\(y_{\text{neg}}\) is the empty prompt by default; a negative prompt replaces it, pushing away from it. Past \(w\approx15\) images over-saturate.</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Decode</span>Back to pixels</div>
+\[x=\mathcal{D}\big(z_0/0.18215\big)\]
+<p class="keq-n">0.18215 rescaled latents to unit variance in training. The VAE is trained once, separately, and stays frozen.</p></div>
+
+<ul class="pts">
+<li><b>Text</b>: CLIP ViT-L/14, 77 tokens × 768-d (SD 2: OpenCLIP ViT-H; SDXL: two encoders, 2048-d).</li>
+<li><b>Denoiser</b>: ~860M U-Net, ε-prediction, scaled-linear schedule \(\sqrt\beta:\sqrt{0.00085}\to\sqrt{0.012}\).</li>
+<li><b>Samplers</b>: 20–50 steps (PNDM, DDIM, Euler, DPM-Solver++). The demo uses DDIM with "leading" spacing: \(t=981,961,\dots,1\).</li>
 </ul>
-<div class="callout"><b>Takeaway.</b> Stable Diffusion = <i>VAE</i> (where to denoise) + <i>CLIP text encoder</i> (what to draw) + <i>U-Net with cross-attention</i> (how to denoise) + <i>classifier-free guidance</i> (how strongly to follow the text).</div>`,
-flux:`
+
+<h3>The family</h3>
+<ul class="pts">
+<li><b>SD 1.x</b> (2022): 512², CLIP ViT-L/14. <b>SD 2.x</b>: OpenCLIP ViT-H, 768², v-prediction.</li>
+<li><b>SDXL</b> (2023): ~2.6B U-Net, two text encoders, 1024², optional refiner.</li>
+<li><b>SD 3 / 3.5</b> (2024): MMDiT transformer, rectified flow, three text encoders, 16-channel VAE: the design FLUX builds on.</li>
+</ul>
+<div class="callout"><b>Takeaway.</b> SD = <i>VAE</i> (where to denoise) + <i>CLIP</i> (what to draw) + <i>U-Net with cross-attention</i> (how to denoise) + <i>CFG</i> (how strongly to follow the text).</div>`,
+flux:String.raw`
 <h2>FLUX: rectified-flow transformers</h2>
-<p><b>FLUX.1</b> was released in August 2024 by Black Forest Labs, founded by several of the researchers behind Latent Diffusion and Stable Diffusion. It came in three variants: [pro] (API only), [dev] (open weights, non-commercial licence) and [schnell] (Apache-2.0). All share a ~<b>12-billion-parameter</b> rectified-flow transformer that works in the latent space of a new 16-channel autoencoder. In the BFL team's own words, FLUX.1 is "a rectified flow transformer trained in the latent space of an image autoencoder" (FLUX.1 Kontext paper, 2025).</p>
-<h3>Rectified flow: learn a straight path from noise to data</h3>
-<p>Diffusion models follow a curved path from noise to data, set by the noise schedule. <b>Rectified flow</b> (Liu et al., 2023), a special case of <b>flow matching</b> (Lipman et al., 2023), instead connects each data point x<sub>0</sub> and noise sample ε with a <i>straight line</i>:</p>
-<div class="eq">x<sub>t</sub> = (1 − t) · x<sub>0</sub> + t · ε,&nbsp;&nbsp; t ∈ [0, 1]&nbsp;&nbsp;&nbsp;⟹&nbsp;&nbsp;&nbsp; dx<sub>t</sub>/dt = ε − x<sub>0</sub> =: v</div>
-<p>The transformer v<sub>θ</sub>(x<sub>t</sub>, t, text) is trained to predict this <b>velocity</b> with a simple regression loss ‖v<sub>θ</sub> − (ε − x<sub>0</sub>)‖². Generation solves the ODE dx/dt = v<sub>θ</sub> backwards from t = 1 (noise) to t = 0 (image), usually with plain <b>Euler steps</b>: x<sub>t−Δ</sub> = x<sub>t</sub> − Δ · v̂. Straighter paths mean less discretisation error per step, so fewer steps are needed. Compare the forward explorer here, a linear mix, with the DDPM tab's √ᾱ curve.</p>
-<p>Two practical refinements come from the SD3 paper (Esser et al., 2024). During training, t is sampled from a <b>logit-normal</b> distribution that emphasises the hard middle noise levels. At inference, the schedule is <b>shifted</b> toward high noise for large images, because more pixels carry more redundant signal. FLUX.1 [dev] uses a resolution-dependent shift: σ' = e<sup>μ</sup> / (e<sup>μ</sup> + 1/σ − 1), with μ growing from 0.5 at 256 tokens to 1.15 at 4096 tokens. The demo uses μ = 1.15, the value for a 1024² image; watch how the σ curve above front-loads the high-noise steps.</p>
-<h3>Architecture: a hybrid multimodal diffusion transformer</h3>
+<p class="tldr"><b>FLUX.1</b> (Black Forest Labs, Aug 2024): a ~<b>12B</b> rectified-flow transformer in the latent space of a 16-channel autoencoder. Variants: [pro] (API), [dev] (open, guidance-distilled), [schnell] (Apache-2.0, 1–4 steps).</p>
+
+<div class="keq"><div class="keq-h"><span class="k">Forward</span>Straight path from data to noise</div>
+\[x_t=(1-t)\,x_0+t\,\epsilon,\qquad v=\frac{dx_t}{dt}=\epsilon-x_0,\qquad t\in[0,1]\]
+<p class="keq-n">Rectified flow (a case of flow matching) replaces DDPM's curved \(\sqrt{\bar\alpha_t}\) path with a line. Compare the forward explorers of the two tabs.</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Loss</span>Flow-matching (velocity) loss</div>
+\[\mathcal{L}_{\text{RF}}=\mathbb{E}_{t,x_0,\epsilon}\Big\lVert v_\theta(x_t,t,y)-(\epsilon-x_0)\Big\rVert^2,\qquad t\sim\text{logit-normal}\]
+<p class="keq-n">Logit-normal \(t\) emphasises the hard middle noise levels (SD3, Esser et al., 2024).</p></div>
+
+<div class="keq"><div class="keq-h"><span class="k">Sampling</span>Euler steps on a shifted schedule</div>
+\[x_{t-\Delta}=x_t-\Delta\,\hat v,\qquad \sigma'=\frac{e^{\mu}}{e^{\mu}+\big(1/\sigma-1\big)}\]
+<p class="keq-n">Straight paths → small error per step → few steps. \(\mu\) grows from 0.5 (256 tokens) to 1.15 (4096 tokens, 1024²), front-loading high-noise steps. The demo uses 1.15.</p></div>
+
 <div class="diagram">${FLUX_SVG}</div>
-<ul>
-<li><b>Autoencoder.</b> 8× downsampling to a <b>16-channel</b> latent (1024² → 16 × 128 × 128). Pairs of 2×2 latent pixels are packed into one 64-d token, so a 1024² image becomes 4096 image tokens.</li>
-<li><b>Text.</b> <b>T5-XXL</b> provides per-token embeddings (up to 512 tokens for [dev]), which join the image tokens in the transformer's sequence. <b>CLIP ViT-L</b> contributes only its pooled 768-d vector, added to the timestep and guidance embeddings to form a global <i>modulation</i> vector (AdaLN scale, shift and gate in every block). T5's language understanding is a major reason FLUX follows long prompts and renders text far better than CLIP-only models.</li>
-<li><b>19 double-stream blocks</b> (MMDiT). Text and image tokens keep separate weights and MLPs, but attention is computed jointly over their concatenation, so information flows both ways. No cross-attention is needed.</li>
-<li><b>38 single-stream blocks.</b> The two sequences are merged and processed with shared weights. Attention and MLP run <i>in parallel</i> from the same input, a fused design that uses the GPU better. Finally the text tokens are dropped and the image tokens are decoded to the velocity.</li>
-<li><b>3D rotary position embeddings</b> (RoPE) encode each token's position, which lets the model work at many aspect ratios and resolutions.</li>
+<ul class="pts">
+<li><b>Latent</b>: 1024² → 16 × 128 × 128; 2×2 patches → <b>4096 image tokens</b>.</li>
+<li><b>Text</b>: T5-XXL token embeddings join the sequence; CLIP-L's pooled vector + timestep + guidance form the <b>modulation</b> vector (AdaLN in every block).</li>
+<li><b>19 double-stream blocks</b>: separate weights for text and image, joint attention, no cross-attention.</li>
+<li><b>38 single-stream blocks</b>: merged sequence, shared weights, attention ∥ MLP. 3D RoPE for positions.</li>
 </ul>
-<h3>Distillation: why [dev] and [schnell] differ</h3>
-<p><b>FLUX.1 [dev] is guidance-distilled.</b> Instead of running the transformer twice per step (conditional + unconditional) as classifier-free guidance requires, the guidance scale w is fed to the model as an extra input embedding. The model was trained to reproduce the guided output in a <b>single forward pass</b>, halving the cost. The usual value is about 3.5, with ~28–50 Euler steps. The demo emulates this by computing the guided velocity directly.</p>
-<p><b>FLUX.1 [schnell] is timestep-distilled</b> with latent adversarial diffusion distillation (LADD). It produces a sharp image in <b>1–4 steps</b>, with no guidance input and no schedule shift. Switch the model selector to see that the step comparison barely changes after 4 steps.</p>
+
+<div class="cards3">
+<div><b>[dev]: guidance-distilled</b>\(w\) (≈3.5) is an input embedding, so one pass replaces CFG's two. 28–50 Euler steps.</div>
+<div><b>[schnell]: timestep-distilled</b>Adversarial distillation (LADD): sharp images in <b>1–4 steps</b>, no guidance, no shift.</div>
+</div>
+
 <h3>Beyond FLUX.1</h3>
-<ul>
-<li><b>FLUX.1 Tools and Kontext</b> (2024–2025): inpainting, depth and edge control, and <i>in-context</i> image editing. Kontext appends the tokens of a reference image to the sequence, so the same transformer can edit while keeping characters consistent.</li>
-<li><b>FLUX.2</b> (November 2025): a new architecture trained from scratch. The open [dev] checkpoint has a <b>32B</b> transformer with <b>8 double-stream and 48 single-stream blocks</b> and replaces T5 + CLIP with a single <b>Mistral Small 3.1</b> vision-language model (24B) as text encoder. It has a new, openly licensed VAE, supports up to <b>10 reference images</b>, and outputs up to 4 MP.</li>
-<li><b>FLUX.2 [klein]</b> (January 2026): compact 4B and 9B distilled models paired with Qwen3 text embedders, generating in ~4 steps at interactive, sub-second speeds.</li>
+<ul class="pts">
+<li><b>Tools &amp; Kontext</b> (2024–25): inpainting, depth/edge control, in-context editing by appending reference-image tokens.</li>
+<li><b>FLUX.2</b> (Nov 2025): 32B transformer (8 double + 48 single blocks), Mistral Small 3.1 (24B) as text encoder, up to 10 reference images, 4 MP output.</li>
+<li><b>FLUX.2 [klein]</b> (Jan 2026): 4B / 9B distilled models, ~4 steps, sub-second.</li>
 </ul>
-<div class="callout"><b>Takeaway.</b> FLUX keeps the latent-diffusion recipe (VAE + text encoders + iterative denoiser) and modernises every piece. It uses straight rectified-flow paths instead of noise-prediction diffusion, one joint-attention transformer instead of a U-Net with cross-attention, T5 instead of only CLIP, a richer 16-channel latent, and distillation that removes the second guidance pass or nearly all of the steps.</div>`
+<div class="callout"><b>Takeaway.</b> Same latent-diffusion recipe, every piece modernised: straight flow paths, one joint-attention transformer, T5 + CLIP, a 16-channel latent, and distillation that removes the second guidance pass or nearly all steps.</div>`
 };
 
 /* =====================================================================
