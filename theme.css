@@ -137,6 +137,25 @@ html[data-explainer="var"] .mS{--acc:var(--swi)} html[data-explainer="var"] .mI{
 .pts li::before{content:"";position:absolute;left:3px;top:.62em;width:7px;height:7px;border-radius:2px;background:var(--acc)}
 .cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0}
 .cards3>div{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:8px;padding:9px 12px;font-size:.92rem;line-height:1.5}
-.cards3 b{display:block;font-family:var(--font-display);font-size:.98rem;margin-bottom:2px}
+.cards3 b:first-child{display:block;font-family:var(--font-display);font-size:.98rem;margin-bottom:2px}
 .explain .katex,#article .katex{font-size:1.05em}
 .explain p.small,#article p.small{font-size:.9rem;color:var(--muted)}
+
+/* ---------- motivation: weakness of the previous model → fix in the next ---------- */
+:root{--bad:#dc2626}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bad:#f87171}}
+:root[data-theme="dark"]{--bad:#f87171}
+.why-h{display:flex;align-items:center;gap:8px;margin:18px 0 4px;font:700 1.12rem var(--font-display)}
+.why-h .k{font:600 .66rem var(--font-mono);text-transform:uppercase;letter-spacing:.07em;padding:2px 8px;border-radius:999px;background:var(--bad);color:#fff}
+.pf{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:10px 0 14px;background:var(--panel)}
+.pf>div{padding:9px 12px;border-top:1px solid var(--line);font-size:.92rem;line-height:1.5}
+.pf>.p{border-left:3px solid var(--bad);background:color-mix(in srgb,var(--bad) 5%,var(--panel))}
+.pf>.f{border-left:3px solid var(--acc)}
+.pf b{display:block;margin-bottom:1px}
+.pf>.hd{border-top:0;padding:6px 12px;font:600 .68rem var(--font-mono);text-transform:uppercase;letter-spacing:.07em;background:var(--soft)}
+.pf>.hd.p{color:var(--bad)}.pf>.hd.f{color:var(--acc)}
+@media (max-width:640px){.pf{grid-template-columns:1fr}.pf>.hd.f{display:none}}
+.go{font-weight:600;color:var(--acc);text-decoration:none;white-space:nowrap;cursor:pointer}
+.go:hover{text-decoration:underline}
+.pathfig{display:block;width:100%;max-width:560px;height:auto;margin:6px auto 2px}
+.pathfig text{font:10.5px var(--font-mono);fill:var(--muted)}

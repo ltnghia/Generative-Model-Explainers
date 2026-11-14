@@ -319,6 +319,13 @@ footer li{margin-bottom:4px;break-inside:avoid}
       <li><b>2019</b>StyleGAN: style-based generator, smooth latent space.</li>
       <li><b>2021→</b>Diffusion leads on quality; GANs remain the fastest one-pass generators.</li>
     </ul>
+    <div class="why-h"><span class="k">Limits</span>What the basic GAN leaves unsolved</div>
+    <div class="pf">
+<div class="hd p">Weakness of the 2014 GAN</div><div class="hd f">Fixed later by</div>
+<div class="p"><b>No control over the output</b>\(z\) is random; you cannot ask for a particular image.</div><div class="f"><b>Conditioning on an input</b>Feed a label, an image or a sentence to G and D. <a class="go" href="#pix2pix">cGAN · Pix2Pix →</a></div>
+<div class="p"><b>Unstable, mode collapse</b>The minimax game oscillates or drops modes.</div><div class="f"><b>Better losses and regularisers</b>WGAN, gradient penalty, spectral norm.</div>
+<div class="p"><b>Tiny, blurry images</b>Fully connected networks do not scale to pictures.</div><div class="f"><b>Convolutional generators</b>DCGAN, Progressive GAN, StyleGAN.</div>
+</div>
   </article>
 </div></section>
 <!-- ===================== PIX2PIX VIEW ===================== -->
@@ -384,6 +391,14 @@ footer li{margin-bottom:4px;break-inside:avoid}
   <article class="explain">
     <h3>From GAN to conditional GAN</h3>
     <p class="tldr"><b>Pix2Pix</b> (Isola et al., CVPR 2017) is a conditional GAN whose condition is a whole image: from aligned pairs \((x,y)\) it learns \(x\to y\). The same recipe handles labels→photo, edges→photo, map↔aerial, day→night and colorization.</p>
+    <div class="why-h"><span class="k">Why</span>Why move beyond the plain GAN?</div>
+    <div class="pf">
+<div class="hd p">Weakness before Pix2Pix</div><div class="hd f">Fix in Pix2Pix</div>
+<div class="p"><b>No control</b>An unconditional GAN draws a random sample from noise.</div><div class="f"><b>Condition on an image</b>D judges pairs \((x,y)\), so the output must match the input.</div>
+<div class="p"><b>Regression alone is blurry</b>L1/L2 losses average all plausible answers.</div><div class="f"><b>L1 + adversarial</b>L1 for layout, the GAN term for sharp texture.</div>
+<div class="p"><b>Detail lost in the bottleneck</b>An encoder-decoder squeezes everything through 1×1.</div><div class="f"><b>U-Net skips</b>Edges and positions bypass the bottleneck.</div>
+<div class="p"><b>One score per image</b>A global D ignores local texture.</div><div class="f"><b>PatchGAN</b>One verdict per 70×70 patch.</div>
+</div>
 
     <div class="keq"><div class="keq-h"><span class="k">Loss</span>Conditional adversarial loss</div>
       \[\mathcal{L}_{cGAN}(G,D)=\mathbb{E}_{x,y}\big[\log D(x,y)\big]+\mathbb{E}_{x,z}\big[\log\big(1-D(x,G(x,z))\big)\big]\]
@@ -413,7 +428,11 @@ footer li{margin-bottom:4px;break-inside:avoid}
     <h4>The ten examples</h4>
     <table><thead><tr><th>#</th><th>Task</th><th>Dataset used in the paper or its project page</th></tr></thead><tbody id="pixTaskTable"></tbody></table>
 
-    <h4>Limitations and successors</h4>
+    <div class="why-h"><span class="k">Limits</span>What Pix2Pix leaves unsolved</div>
+    <ul class="pts">
+      <li><b>Needs an aligned input image</b> → describe the picture in words instead: <a class="go" href="#text2image">Text-to-image GAN →</a></li>
+    </ul>
+    <h4>Other successors</h4>
     <ul class="pts">
       <li><b>Paired data needed</b> → CycleGAN (2017) adds cycle consistency for unpaired data.</li>
       <li><b>Resolution</b> → pix2pixHD (2018), multi-scale G and D up to 2048×1024.</li>
@@ -501,6 +520,8 @@ footer li{margin-bottom:4px;break-inside:avoid}
       \[h_0=F_0\big(z,\,F^{ca}(\bar e)\big),\qquad h_i=F_i\big(h_{i-1},\,F^{attn}_i(e,h_{i-1})\big),\qquad x_i=G_i(h_i)\]
       <p class="keq-n">\(\bar e\): sentence vector, \(e\): word vectors. GAN-INT-CLS has one stage, StackGAN two, AttnGAN three with attention.</p></div>
 
+    <div class="why-h"><span class="k">Why</span>Why text instead of an input image?</div>
+    <p>Pix2Pix needs a full, aligned input image. A caption is far easier to give, but short and abstract: many images fit one sentence.</p>
     <h4>GAN-INT-CLS (Reed et al., ICML 2016)</h4>
     <p>A char-CNN-RNN embedding \(\varphi(t)\) is compressed to 128-d, concatenated with \(z\), and a DCGAN generator draws 64×64.</p>
     <div class="keq"><div class="keq-h"><span class="k">Loss</span>Matching-aware discriminator (GAN-CLS)</div>
@@ -511,13 +532,22 @@ footer li{margin-bottom:4px;break-inside:avoid}
       <p class="keq-n">Blended captions act as extra conditions, so G fills the space between them smoothly. Try the <i>Interpolate</i> slider.</p></div>
 
     <h4>StackGAN (Zhang et al., ICCV 2017)</h4>
-    <p>Sketch, then refine: <b>Stage I</b> draws 64×64 shape and colour; <b>Stage II</b> reads the text again and fixes defects at 256×256.</p>
+    <div class="pf">
+<div class="hd p">Weakness of GAN-INT-CLS</div><div class="hd f">Fix in StackGAN</div>
+<div class="p"><b>Only 64×64, malformed parts</b>Going straight to high resolution was unstable.</div><div class="f"><b>Two stages</b>Sketch at 64², then refine to 256² with the text read again.</div>
+<div class="p"><b>Sparse text conditions</b>Ten captions per image leave gaps between embeddings.</div><div class="f"><b>Conditioning augmentation</b>Sample the condition from a Gaussian.</div>
+</div>
     <div class="keq"><div class="keq-h"><span class="k">Loss</span>Conditioning augmentation</div>
       \[\hat c\sim\mathcal{N}\big(\mu(\varphi_t),\,\Sigma(\varphi_t)\big),\qquad \mathcal{L}_G \mathrel{+}= \lambda\,D_{KL}\big(\mathcal{N}(\mu,\Sigma)\,\Vert\,\mathcal{N}(0,I)\big)\]
       <p class="keq-n">Sampling the condition smooths the text space and adds variety. CUB Inception Score: 2.88 → <b>3.70</b>.</p></div>
 
     <h4>AttnGAN (Xu et al., CVPR 2018)</h4>
-    <p>One sentence vector blurs individual words, so the 128² and 256² stages attend to <b>words</b> per image region. Click a token above the stage strip to see an attention map.</p>
+    <div class="pf">
+<div class="hd p">Weakness of StackGAN</div><div class="hd f">Fix in AttnGAN</div>
+<div class="p"><b>One vector for the whole sentence</b>Individual words such as "red crown" get blurred.</div><div class="f"><b>Word-level attention</b>Each region picks the words that matter there.</div>
+<div class="p"><b>No check that each word appears</b>The adversarial loss only judges the whole image.</div><div class="f"><b>DAMSM loss</b>Rewards word-to-region agreement.</div>
+</div>
+    <p>Click a token above the stage strip to see an attention map.</p>
     <div class="keq"><div class="keq-h"><span class="k">Attention</span>Word-context vector for region \(j\)</div>
       \[c_j=\sum_{i}\beta_{j,i}\,e'_i,\qquad \beta_{j,i}=\frac{\exp\big(h_j^{\top}e'_i\big)}{\sum_{k}\exp\big(h_j^{\top}e'_k\big)},\qquad e'_i=Ue_i\]</div>
     <div class="keq"><div class="keq-h"><span class="k">Loss</span>Generator objective</div>
@@ -528,13 +558,20 @@ footer li{margin-bottom:4px;break-inside:avoid}
     <ul class="timeline">
       <li><b>2019</b>DM-GAN (dynamic word memory), MirrorGAN (re-captions the image).</li>
       <li><b>2022</b>DF-GAN: one generator with deep text-image fusion beats stacked models.</li>
-      <li><b>2023</b>GALIP, StyleGAN-T (CLIP features); <b>GigaGAN</b>: ~1B parameters, 512px in 0.13 s.</li>
+      <li><b>2023</b>GALIP, StyleGAN-T (CLIP features); <strong>GigaGAN</strong>: ~1B parameters, 512px in 0.13 s.</li>
     </ul>
     <div class="cards3">
       <div><b>GAN</b>One forward pass per stage: fast, smooth latent space for editing.</div>
       <div><b>Diffusion</b>Dozens of steps, but stabler training, better coverage and prompt following; the standard since 2021.</div>
     </div>
 
+    <div class="why-h"><span class="k">Limits</span>What AttnGAN leaves unsolved</div>
+    <div class="pf">
+<div class="hd p">Weakness of AttnGAN</div><div class="hd f">Addressed later by</div>
+<div class="p"><b>Complex scenes</b>Quality drops sharply on MS-COCO's multi-object scenes.</div><div class="f"><b>CLIP features, bigger models</b>GALIP, StyleGAN-T, GigaGAN.</div>
+<div class="p"><b>Stacked, multi-loss pipeline</b>Three generators and discriminators to train.</div><div class="f"><b>One generator, deep fusion</b>DF-GAN.</div>
+<div class="p"><b>Diversity and prompt following</b>GAN training covers the data less fully.</div><div class="f"><b>Diffusion models</b>The standard since 2021: see the Diffusion explainer.</div>
+</div>
     <h4>Using the controls</h4>
     <ul class="pts">
       <li><b>Model</b>: 1 stage (GAN-INT-CLS), 2 (StackGAN) or 3 with attention (AttnGAN).</li>
@@ -1424,5 +1461,6 @@ const ArchGAN=(()=>{
   return{init};
 })();
 ArchGAN.init();
+document.addEventListener('click',e=>{if(e.target.closest('a.go[href^="#"]'))setTimeout(()=>window.scrollTo({top:0,behavior:'smooth'}),0)});
 </script>
 </body></html>

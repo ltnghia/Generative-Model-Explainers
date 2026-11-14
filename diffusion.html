@@ -744,10 +744,29 @@ ddpm:String.raw`
 \[\hat\epsilon=\epsilon_\theta(x_t,\varnothing)+w\,\big(\epsilon_\theta(x_t,c)-\epsilon_\theta(x_t,\varnothing)\big)\]
 <p class="keq-n">One network trained with \(c\) randomly dropped. \(w=0\): any class, \(w=1\): plain conditional, \(w>1\): stronger and less diverse. Costs two passes per step.</p></div>
 
-<div class="callout"><b>Takeaway.</b> A diffusion model is a denoiser applied repeatedly with a schedule. SD and FLUX change <i>where</i> it runs (latent space), <i>what</i> network runs (U-Net → transformer) and <i>which path</i> it learns (diffusion → rectified flow).</div>`,
+<div class="why-h"><span class="k">Limits</span>What DDPM leaves unsolved</div>
+<div class="pf">
+<div class="hd p">Weakness of DDPM</div><div class="hd f">Fixed later by</div>
+<div class="p"><b>Cost explodes with resolution</b>Every step runs the U-Net over every pixel.</div><div class="f"><b>Latent space</b>Diffuse in a compressed VAE latent. <a class="go" data-m="sd">Stable Diffusion →</a></div>
+<div class="p"><b>Class labels only</b>No way to describe the image in words.</div><div class="f"><b>Text conditioning</b>CLIP text encoder + cross-attention. <a class="go" data-m="sd">Stable Diffusion →</a></div>
+<div class="p"><b>Slow sampling</b>1000 sequential steps (DDIM: still ~50) on a curved path.</div><div class="f"><b>Straight paths + distillation</b>Rectified flow, 1–4 steps. <a class="go" data-m="flux">FLUX →</a></div>
+<div class="p"><b>Guidance doubles the cost</b>Two network passes per step.</div><div class="f"><b>Guidance distillation</b>\(w\) as an input, one pass. <a class="go" data-m="flux">FLUX →</a></div>
+</div>`,
 sd:String.raw`
 <h2>Stable Diffusion: diffusion in a learned latent space</h2>
 <p class="tldr"><b>Latent Diffusion</b> (Rombach et al., CVPR 2022): a frozen autoencoder compresses the image 8× per side, and the diffusion model works on that small code. Three parts: <b>CLIP</b> text encoder → <b>U-Net</b> denoiser → <b>VAE</b> decoder.</p>
+
+<div class="why-h"><span class="k">Why</span>Why move beyond DDPM?</div>
+<p>DDPM works, but at high resolution it is too expensive: each of its 25–1000 steps runs the full network on every pixel.</p>
+<div class="keq"><div class="keq-h"><span class="k">Cost</span>Values the denoiser processes at every step (512² image)</div>
+\[\underbrace{3\times512\times512}_{\text{pixels (DDPM)}}=786{,}432\qquad\text{vs}\qquad\underbrace{4\times64\times64}_{\text{latent (SD)}}=16{,}384\qquad\Rightarrow\qquad 48\times\text{ fewer}\]
+<p class="keq-n">Self-attention grows as \((HW)^2\): 4,096 latent positions instead of 262,144 pixels makes attention at full scale affordable.</p></div>
+<div class="pf">
+<div class="hd p">Weakness of pixel-space diffusion</div><div class="hd f">Fix in Stable Diffusion</div>
+<div class="p"><b>Compute grows with resolution</b>Pixel-space models (ADM) took 150–1000 V100-days to train and ~5 days for 50k samples on one A100.</div><div class="f"><b>Diffuse in a latent</b>A VAE compresses 8× per side once; every denoising step then works on a 48× smaller tensor.</div>
+<div class="p"><b>Capacity wasted on invisible detail</b>Likelihood training spends most bits on high-frequency texture no one perceives.</div><div class="f"><b>Split the work</b>The autoencoder handles perceptual detail; diffusion only models layout and semantics.</div>
+<div class="p"><b>Only class labels</b>The condition is one of a fixed set of classes.</div><div class="f"><b>Free text</b>CLIP embeddings enter every U-Net block through cross-attention.</div>
+</div>
 
 <div class="keq"><div class="keq-h"><span class="k">Loss</span>Latent diffusion objective</div>
 \[\mathcal{L}_{\text{LDM}}=\mathbb{E}_{z=\mathcal{E}(x),\,y,\,\epsilon,\,t}\Big\lVert\epsilon-\epsilon_\theta\big(z_t,\,t,\,\tau_\theta(y)\big)\Big\rVert^2\]
@@ -778,10 +797,43 @@ sd:String.raw`
 <li><b>SDXL</b> (2023): ~2.6B U-Net, two text encoders, 1024², optional refiner.</li>
 <li><b>SD 3 / 3.5</b> (2024): MMDiT transformer, rectified flow, three text encoders, 16-channel VAE: the design FLUX builds on.</li>
 </ul>
-<div class="callout"><b>Takeaway.</b> SD = <i>VAE</i> (where to denoise) + <i>CLIP</i> (what to draw) + <i>U-Net with cross-attention</i> (how to denoise) + <i>CFG</i> (how strongly to follow the text).</div>`,
+<div class="why-h"><span class="k">Limits</span>What Stable Diffusion leaves unsolved</div>
+<div class="pf">
+<div class="hd p">Weakness of SD</div><div class="hd f">Fixed in FLUX by</div>
+<div class="p"><b>Still 20–50 steps, ×2 for CFG</b>Up to 100 U-Net passes per image.</div><div class="f"><b>Rectified flow + distillation</b>Straight paths, one pass per step, 1–4 steps for [schnell]. <a class="go" data-m="flux">FLUX →</a></div>
+<div class="p"><b>Shallow text understanding</b>CLIP: 77 tokens, weak at counting, layout and spelling.</div><div class="f"><b>T5-XXL</b>Up to 512 tokens inside the transformer's sequence. <a class="go" data-m="flux">FLUX →</a></div>
+<div class="p"><b>4-channel latent</b>Fine detail such as small text and faces is lost.</div><div class="f"><b>16-channel VAE</b>Four times the latent channels. <a class="go" data-m="flux">FLUX →</a></div>
+</div>`,
 flux:String.raw`
 <h2>FLUX: rectified-flow transformers</h2>
 <p class="tldr"><b>FLUX.1</b> (Black Forest Labs, Aug 2024): a ~<b>12B</b> rectified-flow transformer in the latent space of a 16-channel autoencoder. Variants: [pro] (API), [dev] (open, guidance-distilled), [schnell] (Apache-2.0, 1–4 steps).</p>
+
+<div class="why-h"><span class="k">Why</span>Why move beyond Stable Diffusion?</div>
+<p>SD made diffusion affordable, but generation is still slow: dozens of steps, each run twice for guidance.</p>
+<div class="keq"><div class="keq-h"><span class="k">Cost</span>Network evaluations per image (NFE)</div>
+\[\text{NFE}=\text{steps}\times\text{passes}:\qquad\underbrace{50\times2}_{\text{SD + CFG}}=100\quad\longrightarrow\quad\underbrace{28\times1}_{\text{FLUX [dev]}}=28\quad\longrightarrow\quad\underbrace{4\times1}_{\text{FLUX [schnell]}}=4\]
+<p class="keq-n">Each FLUX pass is heavier (12B parameters), but far fewer are needed.</p></div>
+<svg class="pathfig" viewBox="0 0 560 150" role="img" aria-label="A curved diffusion path where two large steps miss the data point, next to a straight rectified-flow path where two steps land on it">
+  <text x="10" y="14">Diffusion: curved path</text><text x="300" y="14">Rectified flow: straight path</text>
+  <path d="M30,120 Q140,10 250,120" style="fill:none;stroke:var(--muted);stroke-dasharray:4 4"/>
+  <path d="M30,120 L95,55 L175,40" style="fill:none;stroke:var(--bad);stroke-width:2"/>
+  <circle cx="95" cy="55" r="3.5" style="fill:var(--bad)"/><circle cx="175" cy="40" r="4" style="fill:var(--bad)"/>
+  <text x="182" y="38" style="fill:var(--bad)">2 big steps miss</text>
+  <path d="M320,120 L540,120" style="fill:none;stroke:var(--muted);stroke-dasharray:4 4"/>
+  <path d="M320,120 L430,120 L540,120" style="fill:none;stroke:var(--acc);stroke-width:2"/>
+  <circle cx="430" cy="120" r="3.5" style="fill:var(--acc)"/>
+  <circle cx="30" cy="120" r="5" style="fill:var(--ink)"/><circle cx="250" cy="120" r="5" style="fill:var(--ref)"/>
+  <circle cx="320" cy="120" r="5" style="fill:var(--ink)"/><circle cx="540" cy="120" r="5" style="fill:var(--ref)"/>
+  <text x="18" y="140">noise</text><text x="236" y="140">image</text><text x="308" y="140">noise</text><text x="500" y="140">image ✓</text>
+  <text x="380" y="108" style="fill:var(--acc)">2 steps land</text>
+</svg>
+<div class="pf">
+<div class="hd p">Weakness of Stable Diffusion</div><div class="hd f">Fix in FLUX</div>
+<div class="p"><b>Too many denoising steps</b>The noise-to-image path is curved, so large solver steps fall off it: 20–50 steps needed.</div><div class="f"><b>Rectified flow</b>Learn a straight path; Euler steps follow it closely, so few steps suffice.</div>
+<div class="p"><b>CFG doubles every step</b>Conditional + unconditional pass.</div><div class="f"><b>Distillation</b>[dev]: \(w\) as an input, one pass. [schnell]: 1–4 steps.</div>
+<div class="p"><b>Weak, one-way text conditioning</b>CLIP's 77 tokens; cross-attention lets the image read the text, never the reverse.</div><div class="f"><b>T5 + joint attention</b>T5-XXL tokens join the sequence; MMDiT attention runs both ways.</div>
+<div class="p"><b>U-Net scales poorly; 4-channel latent</b>Hard to grow; fine detail is lost in compression.</div><div class="f"><b>12B transformer, 16-channel VAE</b>Transformers scale predictably; the richer latent keeps text and faces.</div>
+</div>
 
 <div class="keq"><div class="keq-h"><span class="k">Forward</span>Straight path from data to noise</div>
 \[x_t=(1-t)\,x_0+t\,\epsilon,\qquad v=\frac{dx_t}{dt}=\epsilon-x_0,\qquad t\in[0,1]\]
@@ -814,7 +866,12 @@ flux:String.raw`
 <li><b>FLUX.2</b> (Nov 2025): 32B transformer (8 double + 48 single blocks), Mistral Small 3.1 (24B) as text encoder, up to 10 reference images, 4 MP output.</li>
 <li><b>FLUX.2 [klein]</b> (Jan 2026): 4B / 9B distilled models, ~4 steps, sub-second.</li>
 </ul>
-<div class="callout"><b>Takeaway.</b> Same latent-diffusion recipe, every piece modernised: straight flow paths, one joint-attention transformer, T5 + CLIP, a 16-channel latent, and distillation that removes the second guidance pass or nearly all steps.</div>`
+<div class="why-h"><span class="k">Limits</span>What remains hard</div>
+<ul class="pts">
+<li><b>Size</b>: 12B parameters need a large GPU → FLUX.2 [klein] distils to 4B / 9B.</li>
+<li><b>Quality vs speed</b>: [dev] still uses ~28 steps; [schnell]'s 1–4 steps trade some detail.</li>
+<li><b>Licence</b>: [dev] weights are non-commercial; only [schnell] is Apache-2.0.</li>
+</ul>`
 };
 
 /* =====================================================================
@@ -824,6 +881,7 @@ const panes={};const host=document.getElementById('panes'),arts=document.getElem
 Object.values(METHODS).forEach(m=>{const p=new Pane(m);p.mount(host);panes[m.id]=p;arts.insertAdjacentHTML('beforeend',`<article class="explain pane" id="art-${m.id}">${ARTICLES[m.id]}</article>`)});
 function activate(id){document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.m===id));Object.keys(panes).forEach(k=>{panes[k].el.classList.toggle('on',k===id);document.getElementById('art-'+k).classList.toggle('on',k===id);if(k!==id)panes[k].stop()});document.documentElement.style.setProperty('--accent',METHODS[id].hex);panes[id].ensure();try{history.replaceState(null,'','#'+id)}catch(e){}}
 document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.m)));
+document.addEventListener('click',e=>{const a=e.target.closest('a.go[data-m]');if(!a)return;e.preventDefault();activate(a.dataset.m);window.scrollTo({top:0,behavior:'smooth'})});
 activate((location.hash||'').slice(1) in METHODS?(location.hash.slice(1)):'ddpm');
 </script>
 </body>

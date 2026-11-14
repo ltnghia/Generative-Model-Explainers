@@ -338,10 +338,17 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
     \[p(r_1,r_2,\dots,r_K)=\prod_{k=1}^{K}p\big(r_k\mid r_1,\dots,r_{k-1}\big),\qquad r_k\in[V]^{h_k\times w_k}\]
     <p class="keq-n">Raster AR models predict one token at a time, left to right, and cannot see below. VAR conditions each whole map on all coarser maps.</p></div>
 
-  <div class="cards3">
-    <div><b>Raster AR</b>\(n^2\) sequential steps, total compute \(\mathcal{O}(n^6)\).</div>
-    <div><b>VAR</b>\(K\approx\log n\) steps, total compute \(\mathcal{O}(n^4)\): ~<b>20×</b> faster than AR baselines.</div>
-  </div>
+  <div class="why-h"><span class="k">Why</span>Why move beyond raster autoregression?</div>
+  <p>VQGAN, DALL·E 1 and Parti flatten the token grid row by row and predict it like text. That order does not suit images.</p>
+  <div class="keq"><div class="keq-h"><span class="k">Cost</span>Sequential forward passes for a 16 × 16 token grid</div>
+    \[\underbrace{16^2=256}_{\text{raster AR}}\quad\longrightarrow\quad\underbrace{K=10}_{\text{VAR}},\qquad\text{total compute: }\ \mathcal{O}(n^6)\ \longrightarrow\ \mathcal{O}(n^4)\]
+    <p class="keq-n">About <b>20×</b> faster than the AR baselines in practice.</p></div>
+  <div class="pf">
+<div class="hd p">Weakness of raster AR</div><div class="hd f">Fix in VAR</div>
+<div class="p"><b>Wrong order for pictures</b>A token cannot see anything below it; vertical neighbours sit far apart in the sequence.</div><div class="f"><b>Coarse-to-fine order</b>Each scale is predicted from a complete, coarser version of the whole image.</div>
+<div class="p"><b>One token per step</b>\(n^2\) sequential passes; a 1024² image needs thousands.</div><div class="f"><b>One scale per step</b>All tokens of a scale in parallel: about \(\log n\) passes.</div>
+<div class="p"><b>Behind diffusion</b>The AR baseline reached only FID 18.65 on ImageNet 256.</div><div class="f"><b>Beats diffusion transformers</b>FID 1.73, with LLM-like scaling laws.</div>
+</div>
 
   <h2>Step 1 · Multi-scale tokenizer</h2>
   <p>A VQGAN-style encoder maps a 256² image to a 16×16 feature map \(f\); a <b>multi-scale residual quantizer</b> turns it into \(K\) token maps.</p>
@@ -366,11 +373,26 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
     <li><b>Scaling law</b>: \(L\approx(2.0\cdot N)^{-0.23}\), correlation ≈ −0.998, as in LLMs.</li>
     <li><b>Zero-shot editing</b>: in-/out-painting by teacher-forcing tokens outside a mask.</li>
   </ul>
-  <div class="callout cV">Three gaps: class labels only, a 4096-code vocabulary that loses detail, and a KV cache that keeps growing. SWITTI fixes the first and third; Infinity the first two.</div>
+  <div class="why-h"><span class="k">Limits</span>What VAR leaves unsolved</div>
+  <div class="pf">
+<div class="hd p">Weakness of VAR</div><div class="hd f">Fixed later by</div>
+<div class="p"><b>Class labels only</b>ImageNet's 1000 classes; no prompts.</div><div class="f"><b>Text encoders + cross-attention</b><a class="go" href="#sec-switti">SWITTI ↓</a> <a class="go" href="#sec-infinity">Infinity ↓</a></div>
+<div class="p"><b>KV cache keeps growing</b>Every scale attends to all coarser ones.</div><div class="f"><b>Scale-local attention</b>No cache at all. <a class="go" href="#sec-switti">SWITTI ↓</a></div>
+<div class="p"><b>Guidance on every scale</b>CFG doubles the cost even on the largest scales.</div><div class="f"><b>CFG off on the last two scales</b><a class="go" href="#sec-switti">SWITTI ↓</a></div>
+<div class="p"><b>4096 codes lose detail</b>The tokenizer caps quality before the transformer runs.</div><div class="f"><b>Bitwise tokens, 2³² vocabulary</b><a class="go" href="#sec-infinity">Infinity ↓</a></div>
+<div class="p"><b>Errors pile up across scales</b>Trained on perfect inputs, sampled on its own mistakes.</div><div class="f"><b>Bitwise Self-Correction</b><a class="go" href="#sec-infinity">Infinity ↓</a></div>
+</div>
 
-  <section class="mS">
+  <section class="mS" id="sec-switti">
   <h2 class="cS">SWITTI<span class="tag">text-to-image</span></h2>
   <p class="tldr"><b>SWITTI</b> (Voronov et al., Yandex, CVPR 2025): VAR for text, made stable, cache-free and cheaper to guide. ≈2.5B parameters, ≈<b>0.5 s</b> per 1024² image (SDXL 2.3 s, SD3-M 3.9 s).</p>
+  <div class="why-h"><span class="k">Why</span>Why change VAR for text-to-image?</div>
+  <div class="pf">
+<div class="hd p">Weakness of VAR</div><div class="hd f">Fix in SWITTI</div>
+<div class="p"><b>Unstable when scaled to text</b>Activation norms blew up during training.</div><div class="f"><b>Stabilised transformer</b>FP32 head, sandwich norm, RMSNorm, QK-norm.</div>
+<div class="p"><b>Wasted attention and memory</b>Attention mostly looks at the current scale, yet the KV cache stores all of them.</div><div class="f"><b>Scale-local attention</b>Up to 2.3 GB less per 1024² image, ~21% faster.</div>
+<div class="p"><b>Guidance on every scale</b>The last two scales hold most tokens and are guided too.</div><div class="f"><b>Guide early scales only</b>~32% faster, fewer fine artifacts.</div>
+</div>
   <div class="keq"><div class="keq-h"><span class="k">Key idea</span>Scale-local attention (no KV cache)</div>
     \[M^{\text{VAR}}_{ij}=\mathbb{1}\big[\mathrm{sc}(j)\le\mathrm{sc}(i)\big]\quad\longrightarrow\quad M^{\text{SWITTI}}_{ij}=\mathbb{1}\big[\mathrm{sc}(j)=\mathrm{sc}(i)\big]\]
     <p class="keq-n">Attention concentrated on the current scale anyway, and coarser scales arrive through the input \(\hat f_{k-1}\). Saves up to 2.3 GB per 1024² image, ~21% faster. See <b>Attention across scales</b>.</p></div>
@@ -384,9 +406,16 @@ footer{max-width:760px; margin:50px auto 40px; padding:16px 24px 0; border-top:1
   </ul>
   </section>
 
-  <section class="mI">
+  <section class="mI" id="sec-infinity">
   <h2 class="cI">Infinity<span class="tag">bitwise tokens</span></h2>
   <p class="tldr"><b>Infinity</b> (Han et al., ByteDance, CVPR 2025) attacks the tokenizer bottleneck: predict <b>bits</b> instead of code indices, so the vocabulary can grow to \(2^{32}\) and beyond.</p>
+  <div class="why-h"><span class="k">Why</span>Why change VAR's tokens?</div>
+  <div class="pf">
+<div class="hd p">Weakness of VAR</div><div class="hd f">Fix in Infinity</div>
+<div class="p"><b>Small vocabulary</b>4096 codes discard fine detail before generation starts.</div><div class="f"><b>Bitwise quantization (BSQ)</b>\(2^{32}\) implicit codes; rFID 0.61, better than SD's VAE.</div>
+<div class="p"><b>Softmax cannot scale</b>A \(2^{32}\)-way head would need ≈8.8T weights.</div><div class="f"><b>Predict bits (IVC)</b>\(d\) binary heads: \(h\cdot2d\) weights.</div>
+<div class="p"><b>Train/test mismatch</b>Teacher forcing hides the model's own errors.</div><div class="f"><b>Bitwise Self-Correction</b>Flip bits in training and learn to repair them.</div>
+</div>
   <div class="keq"><div class="keq-h"><span class="k">Quantizer</span>Binary spherical quantization (BSQ)</div>
     \[q(z)=\frac{1}{\sqrt d}\,\mathrm{sign}\!\Big(\frac{z}{\lVert z\rVert}\Big)\in\Big\{\pm\tfrac{1}{\sqrt d}\Big\}^{d},\qquad |\mathcal{V}|=2^{d},\ d=32\]
     <p class="keq-n">Entropy term costs \(\mathcal{O}(d)\), not \(\mathcal{O}(2^d)\). ImageNet rFID <b>0.61</b>, better than the continuous SD VAE (0.87).</p></div>
